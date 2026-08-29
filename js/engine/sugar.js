@@ -504,13 +504,17 @@ const Sugar = {
                     this.fonts[f.name] = { type: 'bitmap', img: img, dy: 0, h: 7, overlay: false, charset: '!\"#°%&\'()*+,-./0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`@abcdefghijklmnopqrstuvwxyz{|}~⓵⓶⓷⓸éèêôû' };
                 }));
             } else {
-                const font = new FontFace(f.name, `url(${f.src})`);
-                promises.push(font.load().then(loadedFont => {
-                    document.fonts.add(loadedFont);
-                    this.fonts[f.name] = { type: 'ttf', name: f.name, sz: f.sz, dy: f.dy, h: f.h, overlay: false };
-                }).catch(e => {
-                    console.warn('Failed to load font:', f.name, e);
-                }));
+                // FontFace.load() can hang on mobile - add 3s timeout per font
+                const fontLoadPromise = new FontFace(f.name, `url(${f.src})`).load();
+                promises.push(Promise.race([
+                    fontLoadPromise.then(loadedFont => {
+                        document.fonts.add(loadedFont);
+                        this.fonts[f.name] = { type: 'ttf', name: f.name, sz: f.sz, dy: f.dy, h: f.h, overlay: false };
+                    }).catch(e => {
+                        console.warn('Failed to load font:', f.name, e);
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 3000))
+                ]));
             }
         }
         return Promise.all(promises);

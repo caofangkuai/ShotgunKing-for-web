@@ -13,7 +13,11 @@ const Lang = {
     async load(name) {
         this.currentLang = name;
         try {
-            const response = await fetch(`lang/${name}.txt`);
+            // Add 3s timeout for fetch (mobile networks can be slow)
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000);
+            const response = await fetch(`lang/${name}.txt`, { signal: controller.signal });
+            clearTimeout(timeout);
             const text = await response.text();
             this.parse(text);
         } catch (e) {

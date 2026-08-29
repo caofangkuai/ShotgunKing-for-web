@@ -9,7 +9,7 @@ let assetsLoaded = false;
 let assetsToLoad = 0;
 let assetsLoadedCount = 0;
 let loadingProgress = 0;
-let loadingPhase = 'sprites'; // 'sprites', 'audio', 'done'
+let loadingPhase = 'init'; // 'init', 'fonts', 'sprites', 'audio', 'done'
 
 // === MAIN INITIALIZATION ===
 async function main() {
@@ -29,31 +29,41 @@ async function main() {
     DEN.init();
     SET.init();
     
-    // Set default language
+    // Start game loop IMMEDIATELY - shows loading screen before anything else
+    loadingPhase = 'init';
+    gameLoop();
+    
+    // Load language
     const langSetting = Save.getOpt('lang');
     let langName = 'english';
     if (langSetting === 99 || langSetting === undefined) {
-        // Auto-detect language
         const browserLang = (navigator.language || 'en').toLowerCase();
         if (browserLang.startsWith('zh')) {
             langName = 'simplified_chinese';
-        } else {
-            langName = 'english';
         }
     }
     
-    // Load language
-    await Lang.load(langName);
-    window.lang = Lang.data; // Set global lang object
+    try {
+        await Lang.load(langName);
+    } catch (e) {
+        console.warn('Failed to load language, using defaults');
+    }
+    window.lang = Lang.data;
     
-    // Load fonts
-    await Sugar.loadAllFonts();
+    // Load fonts with 5s timeout (FontFace.load can hang on mobile)
+    loadingPhase = 'fonts';
+    try {
+        await Promise.race([
+            Sugar.loadAllFonts(),
+            new Promise(resolve => setTimeout(resolve, 5000))
+        ]);
+    } catch (e) {
+        console.warn('Font loading error:', e);
+    }
     font(Lang.fontName || 'pico');
     
-    // Start game loop IMMEDIATELY so loading screen can render
-    gameLoop();
-    
     // Load spritesheets (needed for rendering)
+    loadingPhase = 'sprites';
     await loadAllSpritesheets();
     
     // Apply options
@@ -257,7 +267,27 @@ function _update() {
 }
 
 function _draw() {
-    // Loading screen - show while assets are loading
+    // Early loading screen - no font dependency (for mobile compatibility)
+    if (loadingPhase === 'init' || loadingPhase === 'fonts') {
+        cls(0);
+        // Use Canvas API directly (not pico font which may not be loaded yet)
+        const ctx = Sugar.ctx;
+        ctx.fillStyle = '#C2C3C7'; // PICO-8 color 6 (light gray)
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LOADING...', 160, 90);
+        // Draw a simple progress bar
+        ctx.fillStyle = '#5F574F'; // color 5 (dark gray)
+        ctx.fillRect(100, 100, 120, 8);
+        ctx.fillStyle = '#00E436'; // color 11 (green)
+        ctx.fillRect(100, 100, 40, 8); // partial fill
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        return;
+    }
+    
+    // Loading screen - with pico font
     if (loadingPhase !== 'done') {
         cls(0);
         // Draw loading bar
