@@ -256,7 +256,7 @@ const Entity = {
     
     // Reset
     reset() {
-        this.entities = this.entities.filter(e => e.perm);
+        this.entities = this.entities.filter(e => e.perm && !e.dead);
         this.waitQueue = [];
         this.loopQueue = [];
     },

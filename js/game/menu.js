@@ -181,7 +181,6 @@ function openMenu(a, type) {
     // ERASER - clears area behind menu
     var eraser = mke();
     eraser.dp = DP_TOP;
-    eraser.perm = true;
     eraser.dr = function() {};
     menuList.push(eraser);
     
@@ -203,7 +202,6 @@ function openMenu(a, type) {
     // Input handler for keyboard navigation
     var nav = mke(0, 0, 0);
     nav.dp = DP_TOP;
-    nav.perm = true;
     nav.upd = function() {
         if (btnp('down')) {
             menuSelIndex = Math.min(menuSelIndex + 1, a.length - 1);
@@ -237,7 +235,6 @@ function mkMenuBut(id, x, y, w, h) {
     e.id = id;
     e.name = lang[id] || id;
     e.lock = lock;
-    e.perm = true;
     e.dp = DP_TOP;
     e.pw = w;
     e.ph = h;
@@ -405,6 +402,8 @@ function closeMenu() {
 
 // === WEAPON SELECTION ===
 function initWeaponSelect() {
+    reset();
+    menuList = [];
     selectedWeapon = ThroneMode.weaponsIndex || 0;
     fadeTo(0, 20);
     
@@ -475,6 +474,8 @@ function initWeaponSelect() {
 
 // === RANK SELECTION ===
 function initRankSelect() {
+    reset();
+    menuList = [];
     selectedRank = ThroneMode.ranksIndex || 0;
     var maxRank = Save.data.prog.throne ? (Save.data.prog.throne.rank || 0) : 0;
     fadeTo(0, 20);
@@ -557,6 +558,8 @@ function describeRank(r) {
 
 // === OPTIONS ===
 function initOptions() {
+    reset();
+    menuList = [];
     fadeTo(0, 20);
     
     var opts = ['music', 'sfx', 'shields', 'show_danger', 'scrshake', 'scrflash', 'lang', 'back'];
@@ -575,7 +578,6 @@ function initOptions() {
     // Eraser
     var eraser = mke();
     eraser.dp = DP_TOP;
-    eraser.perm = true;
     menuList.push(eraser);
     
     for (var i = 0; i < opts.length; i++) {
@@ -620,7 +622,6 @@ function initOptions() {
     // Input handler for options
     var input = mke(0, 0, 0);
     input.dp = DP_TOP;
-    input.perm = true;
     input.upd = function() {
         if (btnp('down')) {
             selIndex = (selIndex + 1) % opts.length;
@@ -746,7 +747,6 @@ function pauseGame() {
     
     var bg = mke(0, 0, 0);
     bg.dp = DP_TOP;
-    bg.perm = true;
     bg.dr = function() {
         rectfill(0, 0, MCW, MCH, 0);
         lprint(lang.paused || 'PAUSED', MCW / 2, MCH / 2 - 8, 7, 1);

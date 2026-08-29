@@ -88,19 +88,30 @@ const Sugar = {
     },
     
     resize() {
-        const container = document.getElementById('game-container');
         const w = window.innerWidth;
         const h = window.innerHeight;
         
-        let scale = Math.min(Math.floor(w / this.width), Math.floor(h / this.height));
-        if (scale < 1) scale = 1;
+        // Fit canvas to screen maintaining 16:9 aspect ratio
+        const targetRatio = this.width / this.height;
+        const screenRatio = w / h;
         
-        const cw = this.width * scale;
-        const ch = this.height * scale;
+        let cw, ch;
+        if (screenRatio > targetRatio) {
+            // Screen is wider - fit to height, center horizontally
+            ch = h;
+            cw = ch * targetRatio;
+        } else {
+            // Screen is taller - fit to width, center vertically
+            cw = w;
+            ch = cw / targetRatio;
+        }
         
         this.canvas.style.width = cw + 'px';
         this.canvas.style.height = ch + 'px';
-        this.scale = scale;
+        this.scale = cw / this.width;
+        
+        // Update canvas rect for input
+        this.canvasRect = this.canvas.getBoundingClientRect();
         
         // Check landscape
         this.checkOrientation();
@@ -613,23 +624,36 @@ const Sugar = {
         const ctx = this.getTargetCtx();
         const charW = 4;
         const charH = 5;
+        const color = this.getColor(c);
+        
+        // Use a temp canvas for color tinting
+        if (!this._fontTmp) {
+            this._fontTmp = document.createElement('canvas');
+            this._fontTmp.width = charW;
+            this._fontTmp.height = charH;
+        }
+        const tc = this._fontTmp;
+        const tctx = tc.getContext('2d');
         
         for (let i = 0; i < str.length; i++) {
             const ch = str[i];
             const idx = charset.indexOf(ch);
             if (idx >= 0) {
-                const sx = (idx % 32) * charW;
-                const sy = Math.floor(idx / 32) * charH;
-                ctx.save();
-                // Color remapping: use globalCompositeOperation
-                ctx.drawImage(f.img, sx, sy, charW, charH, x + i * charW, y, charW, charH);
-                ctx.restore();
+                // Single row layout: pico_font.png is 435x7 (single row of 4px chars)
+                const sx = idx * charW;
+                const sy = 0;
+                
+                // Tint: draw character, then use source-in to replace color
+                tctx.clearRect(0, 0, charW, charH);
+                tctx.drawImage(f.img, sx, sy, charW, charH, 0, 0, charW, charH);
+                tctx.globalCompositeOperation = 'source-in';
+                tctx.fillStyle = color;
+                tctx.fillRect(0, 0, charW, charH);
+                tctx.globalCompositeOperation = 'source-over';
+                
+                ctx.drawImage(tc, 0, 0, charW, charH, x + i * charW, y, charW, charH);
             }
         }
-        
-        // For color, we need to tint. Let's use a different approach:
-        // Draw to temp canvas, then tint
-        // For now, just draw in white (color 7) and accept limitations
     },
     
     // bprint - print with background
