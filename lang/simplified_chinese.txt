@@ -1,0 +1,989 @@
+font>>indienovaBC
+font_size>>12
+font_line_height>>14
+font_offset_y>>9
+
+-- MENU
+play::游玩
+options::选项
+codex::事典
+credits::制作名单
+quit::退出
+back::返回
+resign::放弃
+start::开始
+	--   Appears in the pause menu while in the tutorial. Could be translated as "end tutorial".
+skip_tutorial::跳过教程
+	--   This is shown on the titlescreen when using a controller.
+press_start::按下$0开始
+
+ask_confirm::你确定吗？
+
+click_start::点击开始
+best_floor::最佳层数：
+best_score::最高分数：
+best_rank::最佳等级：
+completed::完成！
+avenged::复仇！
+exorcised::除魔！
+best_time::最佳时间
+throne_desc::王座模式|在城堡主塔中到达12层来夺回你的王座
+endless_desc::无尽模式|攀登一座无尽地城，尽全力驱逐白方军队
+chase_desc::追逐模式|逃离黑色城堡！|- 尽可能生存下去|- 守卫会不断从版边生成|- “民兵”初始起效，但兵无法晋升|- 每个死去的国王都会让你获得一张黑卡|- 你只能保留5张卡|- 拾取弹药箱来补充弹药
+endless_lock::以任何等级完成王座模式均可解锁无尽模式
+chase_lock::在无尽模式中到达15层以解锁追逐模式
+
+credit_ben::代码/画质/音效/游戏设计：
+credit_remy::sugar引擎/叙事/着色器：
+credit_penta::音乐：
+partners::patreon赞助人
+translators::翻译
+rank::等级
+codex_select::选择一张卡牌|在此处显示
+codex_played::用过
+codex_love::偏爱：
+codex_need_card::需要卡牌
+codex_need_tag::需要标签
+codex_exclude_tag::排除标签
+codex_comp::探索
+codex_gather::在游玩途中收集$0就有机会让$1出现
+	--   Here $0 is replaced with one or multiple tags (eg: "leader or grenade") that need to be in play before the card can appear for the first time. And $1 is replaced with the card's name. Tags are essentially keywords associated with certain cards.
+codex_gather_tags::在游玩途中收集拥有$0标签的卡牌就有机会让$1出现
+	--   Used to list the tags associated with a card. Shown as "tags: [list of tags]"
+codex_tags::标签
+codex_reset::重置统计数据
+codex_secret::这张卡牌是个秘密。只有在特定条件下它才会生成
+codex_need::这张卡牌需要至少$0 $1才会出现
+
+	--   These are tags associated with different cards, as shown in the codex.
+	--   leader is for any card that affects white kings or whichever piece which has the crown
+tag_leader::领袖
+	--   mission is for Undercover Mission and The Mole
+tag_mission::任务
+	--   cloak is for any card that lets you get into stealth mode
+tag_cloak::隐匿
+	--   bleed is for any card that allows you to inflict bleeding
+tag_bleed::流血
+	--   orb is for the Seer's Orb
+tag_orb::法球
+	--   jump is for cards which let you jump over pieces, inflicting them one damage (like Taunting Hop)
+tag_jump::跳跃
+	--   grenade is for cards that give you explosive grenades
+tag_grenade::手雷
+	-- blade is for cards that allow you to slash at low-hp enemy pieces
+tag_blade::利刃
+
+
+-- GAME MODE
+throne::王座
+endless::无尽
+chase::追逐
+
+-- INGAME
+floor_::楼层：
+score_::分数：
+poison::中毒
+power::火力
+range::射程
+f_arc::散射弧度
+knock::击退
+pierce::穿透
+pierc::穿透
+blade::利刃
+	--   short version of fright/scariness/terror (radius in which killing a piece will scare other pieces)
+fright::威慑
+jump::跳跃
+turn_::回合：
+dif_::难度：
+mode_::模式
+unsafe_mode::不安全模式
+checkmate::将死！
+try_again::是否重试？
+yes::是
+no::否
+
+blood_bowl::鲜血碗|所有白子获得+1生命
+pawns_join::白子增加两枚兵
+piece_join::白子增加一枚$0
+click_to_use::点击使用
+replenish_floor::将于下一层补充
+folly_shield::昏招护盾|保护你不做出自杀行为|每回合补满
+soul_desc::$0的灵魂|使用后能像$0一样移动
+crow_turn::然后进行一个额外回合
+soul_slot::灵魂槽位|击败兵和王以外的棋子来偷取他们的灵魂
+already_loaded::霰弹枪已上膛！
+not_target_wrath::怒火没有合适的目标！
+cant_move::你无法移动！
+reload_shotgun_desc::点击来给你的霰弹枪上$0枚$1
+shell::霰弹
+game_over::游戏结束
+no_ammo_left::没有弹药了
+no_shell_loaded::尚未上膛
+no_grenade_left::没有手雷了
+scope_on::瞄准镜已经开启
+card_exhausted::这张牌已经消耗。它将在$0刷新
+card_exhausted_bc::因为$0，这张牌暂时无法使用
+refresh_when::你到达下一层时
+refresh_when_chase::你获得一个弹药箱时
+heir::王储
+extra_turn::额外回合
+souls::灵魂
+degree_symbol::°
+hiding_heir::隐藏王储
+pawn_soul_desc::$0的灵魂|使用后在下一次射击中你会获得2点火力
+unlocked::已解锁$0！
+	--   Used on the disrupt menu which lets you disrupt the white side with a negative effect.
+choose_disrupt::选择一种妨碍效果
+	--   Shown at the bottom of the screen when the countdown is on and the player has to finish the floor in a number of turns.
+	--   Shown as "final countdown:[turns remaining]"
+final_countdown::最后倒数
+	--   Used when there's no possible target/victim for an ability the player is trying to use.
+no_valid_target::没有适用的目标
+	--   Select a piece as target for an ability
+select_a_piece::选择一枚棋子
+	--   Used with the Wand of Wings which lets you move further away from your position.
+choose_destination::选择目的地
+
+  --   NEW!
+  --   Shown at the bottom of the screen when two pieces swap positions.
+swap::交换位置！
+
+  --   Shown at the bottom of the screen in a very specific situation where the King's Look-Alike false king is revealed and subsequently becomes the real king, because the real king was removed when sabotaging the King's Look-Alike with a disruption effect.
+crowning::加冕登基
+
+  --   Not used currently but would be used at the bottom of the screen when giving the player free random souls as a card effect
+free_soul::免费灵魂！
+
+  --   Shown at the bottom of the screen during the sabotage disruption effect
+select_white_card::选择一张白牌
+
+  --   Shown at the bottom of the screen when using the card Bold Plan
+replace_white_card::替换任何一张白牌
+
+
+-- LEVEL_UP
+choose_set::选择一组卡牌
+	--   Used for a specific menu that allows you to choose one card among all possible cards.
+choose_any_card::选择一张卡牌
+
+-- EMOTES
+promote::晋升
+knight_guard::守护
+black_bishop_warcry::为了正义！
+castle::易位
+backup::增援
+cover::掩护
+	--   The heir pawn is being promoted to king
+heir_promote::王储继位！
+	--   Used to describe some card unlocks, same as heir.
+spy::间谍
+	--   The player has found the spy in the white army, allowing them to disrupt the white side.
+meet_spy::间谍密会！
+	--   Used when disguising as a pawn with the card Low-Cost Disguise.
+disguised::伪装！
+	--   Used when the player leaves stealth mode because they exposed themselves.
+visible::暴露！
+	--   Used when the white army disables a mission waypoint with the "investigate" card effect. The "mission" normally allows you to disrupt the white side when completed.
+abort_mission::任务中止！
+	--   Used when the white army finds and kills the spy in their ranks with the "investigate" card effect.
+spy_executed::间谍被处决！
+	--   Used on the white king when he gets hit and it promotes the nearest pawn with the "Emergency Call" card.
+help::护驾！
+	--   Used when shooting the white king's look-alike, revealing them for a knight instead.
+usurper::僭越者！
+come_to_me::来我身边
+my_love::吾爱
+
+	--   These are used for a secret boss. They are the names of the four horsemen of the apocalypse. Please make sure to translate the correct names.
+apo_name_0::瘟疫
+apo_name_1::战争
+apo_name_2::饥荒
+apo_name_3::死亡
+
+	--   The following five lines are used for a secret ending where the four horsemen of the apocalypse show up, but the shotgun king takes the fourth horse and kills the other 3 horsemen before leaving the screen.
+	--   It has to be five lines, they are shown one after the other, and they should be relatively short.
+apo_threat_0::你们
+apo_threat_1::还敢
+apo_threat_2::违逆
+apo_threat_3::本王！
+apo_threat_4::畏惧我吧
+
+	--   Used in a secret event where the white king gets disabled and their usurper knight becomes king instead.
+	--   Has to be 3 lines, they are shown in succession, they should be relatively short.
+power_people_0::权力
+power_people_1::归于
+power_people_2::大众！
+
+
+-- OPTIONS
+music::音乐
+sfx::音效
+sens::Vpad灵敏度
+show_danger::显示危险
+fullscren::全屏
+crt::CRT
+speedrun::计时
+shields::护盾
+scr.shake::屏幕震动
+scr.flash::屏幕闪烁
+lang::语言
+on::开
+off::关
+mod::mod
+none::无
+
+-- PIECES
+piece_0::兵
+piece_1::骑士
+piece_2::主教
+piece_3::城堡
+piece_4::王后
+piece_5::国王
+piece_6::头目
+piece_7::所有子
+piece_8::$leader
+
+-- SHORT PIECE ( length must be <=6 )
+short_piece_0::兵
+short_piece_1::骑士
+short_piece_2::主教
+short_piece_3::城堡
+short_piece_4::王后
+short_piece_5::国王
+short_piece_6::头目
+	--   Blight is the name for the secret queen boss. The point is simply that she's scary, feel free to use whatever conveys that and fits the space constraint.
+short_piece_10::灾孽
+	--   Rider is shown for the secret horsemen of the apocalypse bosses. Ideally should be different to the name for knights, you can also use a word/abreviation for "apocalypse" instead.
+short_piece_11::天启
+
+-- CARDS NAME
+Ermine Belt::貂皮腰带
+Elite Gem::卓越宝石
+Extra Barrel::额外枪管
+Royal Loafers::王室便鞋
+Majestic Censer::庄严熏香
+Sacred Crown::神圣王冠
+Blunderbuss::雷筒
+Engraved Scope::雕花目镜
+Holy Gunpowder::神圣火药
+Ritual Dagger::仪式匕首
+August Presence::威严仪态
+Crow's Blessing::鸦之祝福
+The Moat::护城河
+Rightful Curtsy::屈膝觐见
+Wand of Downpour::暴雨魔杖
+Wand of Frenzy::狂暴魔杖
+Wand of Wrath::怒火魔杖
+Wand of Wings::羽翼魔杖
+Wand of Gust::狂风魔杖
+Wand of Hypnosis::催眠魔杖
+Kingdom Wealth::王国财富
+Gradual Absolution::逐级赦免
+Taunting Hop::挑衅之跃
+Unfaithful Steed::不忠战马
+Unjust Decree::不公法令
+Kingly Alms::王之施舍
+Subtle Poison::隐秘毒药
+Small Fry Harvest::收割杂兵
+A Piercing Truth::穿心之辞
+Black Mist::黑雾
+King's Shoulders::王来肩负
+High Focus::高度集中
+Courteous Jousting::比武礼节
+Cornered Despot::困君犹斗
+Sawed-off Justice::短管正义
+Welcome Gift::欢迎礼物
+Cannon Fodder::炮灰
+Possessed::恶灵附身
+Philanthropy::慈善事业
+Imperial Shot Put::帝国铅球
+Egotic Maelstrom::自负漩涡
+Church Organ::教堂风琴
+Black Plague::黑死病
+Ravenous Rats::贪婪硕鼠
+Deep Water::深水
+Unholy Call::邪恶召唤
+Undercover Mission::卧底任务
+Caltrops::铁蒺藜
+Nightbane::黑夜灾祸
+Bushido::武士道
+Bloodless Coups::无血政变
+Presbyopia::老花眼
+Golden Aging::黄金老化
+Fool Companion::愚者作伴
+Force-feeding::填鸭硬塞
+Seer's Orb::预知法球
+Fearsome::令人畏惧
+Human Shield::肉盾
+Reign of Terror::恐怖统治
+Monarch's Confidence::王之自信
+The Mole::内鬼
+Elusive::幽灵步法
+Holoking::全息影像
+Cloaking Device::隐形装置
+Low-Cost Disguise::廉价伪装
+Wand of Souls::灵魂魔杖
+Wand of Execution::处决魔杖
+Patience::耐心
+Bold Plan::大胆计划
+Silencer::消音器
+Ambush::伏击
+Ancient Flagstone::远古石板
+Tearing Bullets::撕裂弹头
+Indelible Memories::难忘回忆
+Mystic Shackles::神秘镣铐
+Secret Move::隐藏技
+Sacred Light::圣光
+Workshop::作坊
+Selective Listening::偏听偏信
+
+
+Backups::援军
+Cavalry::骑兵
+Conclave::教团
+Entitle::授爵
+Cardinal::红衣主教
+Remparts::壁垒
+Pillage::劫掠
+Crusades::圣战
+Peace::和平
+King's Mistress::王之情妇
+Revolution::革命
+Bodyguard::护卫
+Ruins::废墟
+Assault::突击
+Kite Shield::鸢盾
+Zealots::狂热信徒
+Militia::民兵
+Ammunition Depot::弹药库
+Scouting::侦查
+Pikemen::长枪兵
+Ascension::化圣升天
+Castle::易位入堡
+Conscription::征兵
+Theocracy::神权统治
+Iron Maiden::铁娘子
+Court of the King::王廷重臣
+The Red Book::红色圣书
+Homecoming::归来
+Overthrown Theocracy::推翻神权
+Saboteur::暗中破坏
+Lookout Tower::瞭望塔
+Throne Room::王座之间
+The Secret Heir::秘密王储
+Genderqueer::变装王后
+Karma::因果报应
+Undead Armies::亡灵军队
+Shortage::短缺
+Succubus::魅魔
+Bunker::掩体
+Sanctity::圣洁
+Knightmare::梦魇骑士
+Highest Dungeon::高塔囚徒
+Cathedral::大教堂
+The Bridge::大桥
+Divine Healing::神圣疗愈
+Last Guardian::最终卫士
+Trowel::瓦刀
+Full Plate Armor::全身板甲
+Military Academy::军事学院
+Witch's Curse::女巫诅咒
+Saddle::马鞍
+The Jester::宫廷小丑
+Guillotine::断头台
+Analysis Paralysis::分析瘫痪
+
+Plumed Knight::羽冠骑士
+Emergency Call::临危受命
+Mangonel::投石机
+Governess::王后教育
+Mausoleum::王陵
+Reverend Mother::圣母在上
+Sokoban::推箱子
+Tag Team::组队作战
+Unicorn::独角兽
+Lady in the Tower::塔中女士
+Final Countdown::最后倒数
+	--   Can be translated as Nomadism. Please do not use potentially offensive terms.
+Nomad Life::游牧生活
+Prison::监牢
+Inquisition::宗教裁判
+King's Look-alike::国王替身
+The Royal Hunt::国王巡猎
+Tragic Homecoming::悲剧归来
+	--   Limos (or Limus in latin, take your pick) is the name of the third Horseman of the Apocalypse, the one wearing the shield (/buckler) in the secret boss version of the horsemen in the game. This card gives the shield to the white king, protecting him to some extent. The Limos reference doesn't have to be kept if you can find a better name for that card in your language.
+Buckler of Limos::饥荒之盾
+Vampirism::吸血鬼
+Commoner's Reign::平民执政
+Bouncy Castle::弹跳城堡
+Fallen Dynasty::王朝覆灭
+Self-Defense::正当防卫
+Unsettled Throne::王位纷争
+
+
+-- CARDS DYNAMIC
+rem_piece::移除$0枚$1
+add_piece::$delay，增加$0枚$1
+add_piece_nodelay::增加$0枚$1
+at_delay::$0回合后
+ammo_max::最大弹药数
+grenades_max::手雷
+ammo_regen::弹药再生
+firepower::火力
+firerange::射程
+chamber_max::枪管数
+spread::散射
+	--   "Search" as in "Looking for something". The search stat lets you reroll card choices N times. Can also translate as "Reroll" if it makes more sense in your language.
+search::搜寻
+knockback::击退
+hp::生命
+queen_escape::你无法逃脱她……
+queen_everywhere::……她无处不在！
+flip_if::如果$0，则翻牌
+every_x_turn::每$0回合
+white::白方
+black::黑方
+and::和
+_or_::或
+standing::在$0格上$1
+
+	-- these next 3 are new and might need reviewing
+effect_ammo_max::最大弹药数：$1
+effect_grenades_max::$1手雷
+effect_ammo_regen::弹药再生：$1
+
+
+effect_chamber_max::可以在霰弹枪中额外装入$0发霰弹
+effect_soul_slot::增加$0个额外灵魂槽位
+effect_soul_sink::移除1个灵魂槽位
+effect_crown::你可以在使用灵魂卡牌后额外进行一个回合
+effect_presence::非国王棋子无法接近你的国王
+effect_moat::非骑士棋子无法单次移动直接越过护城河
+effect_hp::<piece>: <inc>生命
+effect_hprc::<piece>: $0%生命
+effect_tempo::<piece>: <inc>速度
+effect_shell::你每次击杀一个<piece>就会获得$0弹药
+effect_poison::<piece>的移动限制：前$0回合只能移动1格
+effect_cage::<piece>的移动被限制为$0格
+effect_shield::<piece>拥有护盾，在单个回合可以吸收所有伤害
+effect_flying::<piece>可以越过所有障碍物进行移动和攻击
+effect_castle::每当$leader会受到伤害时，会先和一枚<piece>互换位置
+effect_iron::<piece>不会死亡
+effect_orth::<piece>可以横纵向移动（但不可横纵向攻击）
+effect_joust::当你击杀一个<piece>时，进行一个额外回合
+effect_recoil::射击会让你倒退
+effect_firepower::$1火力
+effect_firerange::$1射程
+effect_pawnreap::使用士兵的灵魂会在下一次射击中让你获得+2点火力
+effect_freegren::每回合有一次投掷手雷的机会，且无需结束你的回合
+effect_grenade_dmg::$1手雷伤害
+effect_sanctity::<piece>的灵魂无法被收割
+effect_plague::在每回合结束时，随机对一枚棋子造成1点伤害
+effect_rats::当你杀死一枚棋子时，会生成一只老​​鼠，啃咬最近的目标并造成1点伤害
+effect_deepwater::护城河内的非骑士棋子无法攻击你
+effect_pentagrams::在棋盘上添加$0个五芒星。触发能让你获得一个额外回合，全部触发能让你获得+2火力
+effect_waypoint::当你到达一个路径点时，选择一个妨碍效果并进行一个额外回合
+effect_blade::利刃：$1
+effect_blade_old::处决生命值小于等于你的利刃数值的近距离棋子
+effect_bushido::每回合一次，你可以不结束回合用刀处决一枚棋子。
+effect_peace::<pieces>无法攻击你
+effect_minr::<pieces>在小于$0的范围内无法攻击你
+effect_carry::<pieces>移动时可以携带上城堡和骑士以外的棋子
+effect_nocarry::<pieces>无法被其他棋子携带移动
+	--   for free = without spending the turn
+effect_freelift::<pieces>在被抓取和投掷时不消耗回合
+effect_jester_guard::小丑可以向各个方向移动并会始终跟随$leader。杀死小丑时会获得一个额外回合
+effect_bodyguard::只要还有<piece>存活，$leader就不会死
+effect_knockback::+$1%几率击退敌人
+effect_spread::散射弧度 $1$
+effect_absolution::每一个空置的灵魂槽位提供$1火力
+effect_hop::跳跃：$1（不结束回合，从一个相邻棋子头上跳过）
+effect_steed::移动范围：+1
+effect_pierce::你的霰弹有$0%的几率穿透目标
+effect_mist::每层楼保护你免于死亡一次
+effect_grab::每层楼一次，你可以将一枚附近的棋子拖过来，并将其向任意方向投掷出去
+effect_grab_console::每层楼一次，你可以抓住一枚附近的棋子，并将其向任意方向投掷出去
+effect_assault::<pieces>第一次行动时可以多移动1格
+effect_militia::兵可以向四个方向移动、攻击
+effect_pikemen::兵无法进行对角线移动，但可以攻击正前方两格
+effect_theocracy::杀死所有主教时获胜
+effect_bad_shells::使$0发弹药的散射弧度加倍
+effect_heir::王储：$1|（秘密王储会在国王死亡时取而代之）
+effect_nothing::没有变化
+effect_wraith::<pieces>只有在移动时才会被击中
+effect_manual_reload::每回合只会重新装填一发霰弹
+	--   <pieces> and <piece> are not necessarily the same piece type.
+effect_protect::<piece>附近的非<pieces>棋子每回合受到的伤害不会超过2点
+effect_bridge::在护城河中开出一条通道
+effect_healer::<pieces>可以治疗附近的盟友来代替移动
+	--   the last one = the last one alive/remaining
+effect_lastg::在杀死<piece>后，如果只剩最后一枚<piece>，则将其晋升
+effect_curse::如果<piece>被杀，则翻面这张卡牌
+effect_jester::小丑可以沿对角线移动并拥有+2速度|小丑死亡时会将帽子传递下去
+effect_free_souls::在每层开始时添加$0个随机灵魂
+
+effect_plumed::一枚<piece>获得+3生命且可斜向攻击
+effect_emergency::你第一次命中一枚<piece>时，使其获得+1速度，且会让其最近的兵晋升
+effect_despair::当一枚<piece>死亡时，所有其他棋子都会陷入惊恐。他们无法攻击你，且下一次移动会试图逃离
+effect_force_promote::兵总是会晋升为王后
+effect_leaderbond::当一枚<piece>死亡时，$leaders受到$0点伤害
+effect_fearsome::+1威慑半径|当你杀死一枚兵以外的棋子时，半径内的所有棋子都会陷入惊恐。他们无法攻击你，且下一次移动会试图逃离
+effect_humanshield::令人畏惧的效果在杀死兵时也会触发
+effect_terrorism::令人畏惧的效果会额外以被杀棋子的位置进行一次判定
+effect_search::搜寻：$1
+effect_tactic::白子每回合最多只能有$0种棋子类型可以移动
+effect_confidence::你的霰弹枪枪管中每发空置的弹药+1火力
+effect_spy::在兵中+1间谍|到达间谍身边就可以选择一种妨碍效果并额外获得一个回合
+effect_push::<pieces>可以将棋子推动$0次
+effect_swap::<pieces>可以和一枚<target_piece>交换位置
+	--   can charge your king = can run towards your king (this is used for the Unicorn card, which lets knights ram you down)
+effect_charge::<pieces>可以不移动，而是向你的国王发起冲锋，将其推动一格
+	--   white pieces ready to move = about to move
+effect_elusive::即将移动的白子无法攻击你
+	--   a piece that would kill you instead gets promoted to a queen
+effect_killprom::<pieces>不会击杀黑王，而是会晋升成王后
+effect_holoking::你在使用灵魂时会创造出一个全息影像
+effect_holocloak::每次创造全息影像时，你会进入潜行模式6回合
+effect_holoreveal::如果你的全息影像被摧毁，你会失去潜行效果
+effect_catapult::<pieces>可以不移动，而是像你发射一枚投射物
+	--   a countdown starts when there are only 6 pieces left. If you don't end the floor within the countdown, you die.
+effect_deathcount::剩余最后六个白子时，会进入$0回合的倒数计时，必须在倒数结束前过关
+effect_disguise::当你击杀一枚<piece>时，进入潜行模式$0回合
+effect_promote::<pieces>可以在到达最后一行时晋升
+effect_bully::每个威胁到你的<piece>都让你-1火力
+effect_investigate::<pieces>会处决暴露的间谍并中止卧底任务
+effect_false_king::当假国王受伤时，会替换为一名骑士
+effect_full_firerange::你的枪在满弹药时$1射程
+effect_full_firepower::你的枪在满弹药时$1火力
+	--   browse the entire deck and pick your card the next time you're getting a black card
+effect_browse::你的下一张黑牌可以在所有黑牌中任意进行选择
+effect_replace_white_card::将一张白牌替换为另一张
+effect_pike::<pieces>可以攻击身前的两格
+effect_reformed::<pieces>无法使用他们的标准攻击
+effect_armorgap::<pieces>在一回合内无法受到超过$0点伤害
+effect_bow::<pieces>可以在移动时向你发射飞行道具
+	--   fire = shoot your shotgun
+effect_silencer::潜行时，开枪不会暴露自己
+effect_prison::<pieces>在靠近<target_piece>时无法移动和攻击
+effect_knockweak::<pieces>被击退的几率+50%
+effect_flagstones::+$0传送石板|随时可以跳到石板上
+effect_uncover::<pieces>可以攻击潜行中的你
+effect_tearing::被你的子弹击中的敌人会流血|（流血的棋子在被攻击时会受到一点额外伤害）
+effect_bleed_slow::流血的棋子-1速度
+effect_caltrops::+$0%几率，对移动的敌人施加流血|（流血的棋子在被攻击时会受到一点额外伤害）
+effect_grenade_center_dmg::手雷投掷的中心格子$1伤害
+effect_grenade_bleed::手雷会施加流血|（流血的棋子在被攻击时会受到一点额外伤害）
+effect_vampire::<pieces>免疫|<pieces>可以靠附近的流血棋子进行治疗，同时移除他们的流血。
+effect_rep::在<pieces>死后将其替换为<target_piece>
+	--   orb = Seer's Orb, special ability that lets you place an orb over a piece to know its next move
+effect_shackles::受到法球影响的棋子无法改变其移动，并且速度-1
+effect_ruler::如果所有<target_piece>死亡，则获胜
+effect_hop_dmg::跳跃伤害：$1
+	--   use up all your jumps available in a turn
+effect_botte::直接用尽你的所有跳跃次数，在下一次开枪时获得相当于你跳跃值的火力
+effect_fitness::<pieces>可以像骑士一样进行移动（但不能以此进行攻击）
+effect_grenade_proof::你免疫手雷伤害
+effect_grenade_stun::手雷会使棋子晕眩$0回合
+effect_trampoline::从棋盘上掉落的棋子会满血归来|手雷弹力更高
+	--   Replaces Theocracy and Hippocracy descriptions on the boss level, where you have to beat the big white king instead. Royalty shall prevail = royalty shall have the last word = royalty was fated to make a comeback
+effect_fallen::虽然王室的统治已是往事……|但他们终将归来
+	--   Produce = generate. Used with every_x_turn key
+	--   eg: Every 10 turns: Produce 1 grenade
+effect_mk_grenades::生成$0枚手雷
+effect_mk_ammo::生成$0枚弹药
+effect_heirprom::王储晋升为国王
+effect_freereload::击杀时重新上弹
+effect_overload::原地上弹会让你在填满枪管之后再额外塞入一发霰弹
+effect_delay_mult::所有延迟触发的卡牌效果延迟增加$0%
+effect_paralysis::除非你被将军，否则你在$0回合后才能行动
+effect_cannonball::添加$0枚炮弹|炮弹可以被抓取然后向棋子投掷
+	--   backups refer to cards that add pieces after a number of turns
+effect_alarm::你每杀死一枚棋子，白方的增援就提前$0回合到达
+  -- NEW!
+  --   Refers to the difficulty level of the algorithm deciding the white side's moves. Shows as: "White Strategy:+1"
+effect_ai_lvl::白方棋力：$1
+
+-- STATS
+stat_firepower::你霰弹枪中的每发霰弹会分裂成$0片发射出去，每片造成一点伤害。
+stat_range::你子弹的射程是$0格
+stat_f_arc::你子弹的散射角度是$0
+stat_knock::你的子弹有$0%的几率击退棋子
+stat_pierce::你的子弹有$0%的几率穿透棋子
+stat_blade::你可以不消耗弹药，杀死相邻生命值小于等于$0的棋子
+stat_fearsome::当你杀死一枚棋子时，半径内的所有棋子都会陷入惊恐。他们无法攻击你，且下一次移动会试图逃离
+	--   [You can / you are allowed to] jump over a nearby piece...
+stat_jump::你可以从相邻棋子的头上跳过$0次，而不结束回合
+
+-- CONDITIONS
+cond_contact::有棋子与你相邻
+cond_inner::你的国王不在棋盘的边缘
+cond_first-reload::你的霰弹枪重新上过弹
+cond_no_piece::棋盘上没有$0
+cond_only_pieces::棋盘上只有$0
+cond_not_cloaked::你的国王不在潜行中
+
+-- SPECIALS
+special_strafe::扫射模式：右键点击一个目标，你将会在下一次移动时向其开火
+special_scope::右键点击：散射弧度-45$且射程+1。每次移动及上弹时会重置
+special_decree::国王可以用右键点击来发射所有已经上膛的弹药
+special_grenade::右键点击可以投掷一枚手雷
+special_orb::右键点击一枚棋子，可以预测其接下来的行动
+special_orb_console::按$0选择一枚棋子，可以预测其接下来的行动
+
+-- SPECIAL CONSOLE
+special_strafe_console::扫射模式：按$0选择目标。你将在下一次移动时射击它。
+special_scope_console::按$0：散射弧度-45$且射程+1。每次移动及上弹时会重置
+special_decree_console::国王可以按$0来发射所有已经上膛的弹药
+special_grenade_console::按$0投掷一枚手雷
+effect_blade_console::利刃：$1伤害
+
+
+-- WANDS
+wand_0::随机对敌人造成总计$0点伤害
+wand_1::补满弹药并上弹
+wand_2::对一个非$leader目标造成$0点伤害
+wand_3::朝任意方向移动最多$0格
+wand_4::将所有白子向北推
+wand_5::操纵一枚你选择的白子
+wand_6::将一枚棋子晕眩3回合并偷取其灵魂
+	--   refill = regenerate = can be used again
+wand_7::摧毁一枚兵。当你击杀一枚非兵棋子时，可以再次使用。
+
+-- DISRUPTION
+disrupt_effect_name_0::破坏白军
+disrupt_effect_name_1::水源投毒
+disrupt_effect_name_2::偷取弹药
+disrupt_effect_name_3::刺杀白王
+disrupt_effect_name_4::黏住鞋底
+disrupt_effect_name_5::因果倒转
+disrupt_effect_name_6::卫兵缴械
+disrupt_effect_name_7::反向倒数
+
+disrupt_effect_desc_0::选择一张白牌并将其禁用
+disrupt_effect_desc_1::所有白子的最大生命值-1
+disrupt_effect_desc_2::补满弹药并给枪上弹
+disrupt_effect_desc_3::对国王造成4点伤害
+disrupt_effect_desc_4::所有白子速度-1
+	--   refers to a card called Karma which usually gives different maluses depending on what square color you're standing on.
+disrupt_effect_desc_5::因果报应的效果反而使你受益
+disrupt_effect_desc_6::兵无法再攻击你
+	--   refers to a card called Final Countdown which usually kills you if you fail to win the level in a specific number of turns
+disrupt_effect_desc_7::在最后倒数结束时摧毁所有白子
+
+
+-- SHOTGUN UNLOCK
+shotgun_unlock_1::获得6+射程|来解锁这把霰弹枪
+shotgun_unlock_2::获得100%击退几率|来解锁这把霰弹枪
+shotgun_unlock_3::获得4+霰弹枪子弹容量|来解锁这把霰弹枪
+shotgun_unlock_4::获得4+利刃|来解锁这把霰弹枪
+shotgun_unlock_5::在一局游戏中重新抽牌4次|来解锁这把霰弹枪
+shotgun_unlock_6::使射程变为0-2|来解锁这把霰弹枪
+
+-- CONSOLE
+lang_endonym::简体中文
+switch_profile::切换档案
+press_start::按$0开始
+press_to_use::按$0使用
+ui_codex::事典：$0%
+ui_achievements::成就：$0%
+tutorial::教程
+tutorial_desc::教程|学习如何游玩本游戏！
+skip_tutorial::跳过教程
+soul_desc_console::$0的灵魂|按$1后能像$0一样移动
+pawn_soul_desc_console::$0的灵魂|按$1后在下一次射击中你会获得2点火力
+
+-- TOUCHES
+pause::暂停
+equiped::已装备
+reset_save::重置存档
+cancel::取消
+touch_start::轻触开始
+touch_to_use::轻触使用
+reload_shotgun_desc_touch::轻触来给你的霰弹枪上$0枚$1
+special_strafe_touch::扫射模式：轻触一个目标，你将会在下一次移动时向其开火
+special_scope_touch::轻触：散射弧度-45$且射程+1。每次移动及上弹时会重置
+special_decree_touch::国王可以用轻触来发射所有已经上膛的弹药
+special_orb_touch::轻触棋子可以预测它的下一步
+special_grenade_touch::轻触可以投掷一枚手雷
+grenade_walkable::尝试在可通行区域投掷手雷
+
+-- TUTO TOUCH
+ctrl_tuto_1_1_touch::轻触方格可以移动到该位置
+ctrl_tuto_1_1_vpad::在屏幕左半边滑动手指即可移动
+ctrl_tuto_1_2_vpad::将手指放回初始位置即可取消移动
+ctrl_tuto_3_1_touch::连续轻触敌人两次可以向其射击
+ctrl_tuto_3_1_vpad::或者在屏幕右半边滑动手指来瞄准，然后松开手指立即射击
+ctrl_tuto_3_3_touch::在棋盘上方移动或轻触霰弹枪即可装填子弹
+ctrl_tuto_4_1_touch::你只需在棋盘上点击一次棋子，即可随时阅读棋子信息
+ctrl_tuto_5_2_touch::你可以通过点击卡牌再次阅读每张卡的文字
+tuto_barrels_touch::枪管：|这是目前装在你的霰弹枪中的弹药，只要你还有弹药，你就可以继续射击。|要重新装弹，只需移动你的国王或轻触霰弹枪
+
+-- TUTORIAL
+objectives_tuto::目标：
+objective_tuto_1::-避开白方主教|-进入城堡
+objective_tuto_2::-获取霰弹枪
+objective_tuto_3::-击败城堡
+objective_tuto_4::-击败两名骑士
+objective_tuto_5::-击败白王
+chess_tuto_1::主教沿对角线移动
+ctrl_tuto_1_1::选择移动的位置：
+ctrl_tuto_1_2::确认：
+chess_tuto_3::城堡走直线
+ctrl_tuto_3_1::瞄准：
+ctrl_tuto_3_2::射击：
+ctrl_tuto_3_3::给霰弹枪装弹（移动也可以装弹）：
+chess_tuto_4::骑士的移动方式是L形| |小心它们可以跳过棋子！
+ctrl_tuto_4_1::你可以随时阅读棋子信息：
+ctrl_tuto_4_2::暂停游戏：
+chess_tuto_5_1::王后可以向任何方向移动
+chess_tuto_5_2::兵只能向前移动一步，但会斜向攻击！
+ctrl_tuto_5_1::每个楼层的目标都是击败白王
+ctrl_tuto_5_2::你可以再次阅读卡牌的描述文本：
+ctrl_tuto_5_3::切换危险显示：
+tuto_barrels::枪管：|这是目前装在你的霰弹枪中的弹药，只要你还有弹药，你就可以继续射击。|要重新装弹，只需移动你的国王或按$0。
+tuto_ammo::弹药：|这是你的弹药储备。|如果你在移动时枪管已经装满、或是没有任何弹药，你就会获得新的弹药。
+tuto_folly_shields::昏招护盾：|从现在开始，如果你粗心大意，就很容易死掉！幸运的是这些盾牌可以防止你犯下立马就死的错误，它们在每个回合后都会重新充满。| |你可以在选项中更改护盾的数量。
+tuto_card_black::每完成一个楼层，你都会得到一项升级……
+tuto_card_white::……但敌人也会得到一项！那么，祝你好运了！
+
+-- TUTORIAL DIALOGUES
+black_king::黑王：
+black_bishop::黑方主教：
+dialogue_tuto_1_1::陛下，您已众叛亲离，只有微臣还在此为您出谋划策。臣能否建议陛下战术性撤退呢？
+dialogue_tuto_1_2::逆臣贼子！！穿着这身白袍真是荒唐至极！
+dialogue_tuto_1_3::陛下，臣担心此刻我等势单力孤，还望陛下起驾回城。
+dialogue_tuto_1_4::也罢，回城。本王自有主意洗刷这一耻辱。
+dialogue_tuto_2_1::啊，你在这儿呢，我最忠实的臣子……
+dialogue_tuto_2_2::陛下？您……您这是何意？
+dialogue_tuto_2_3::是本王的王室霰弹枪！让我们看看那些叛徒们如今会是什么表情吧。
+dialogue_tuto_2_4::陛下胸怀宽广，微臣顿首恳请陛下三思：此等手段暴戾过甚，微臣恕难认同。
+dialogue_tuto_2_5::你可闭上那微臣微臣的嘴吧，没胆量就留在这里。本王还需要你和你的认同吗！
+dialogue_tuto_3_1::喂那边的，小破城堡！是来欣赏本王的城墙的吗！？靠过来一点儿，本王有更好的风景给你看看！
+dialogue_tuto_3_2::你这堆没用的砖头，难道还要逼本王重新上弹吗？
+dialogue_tuto_4_1::啊，这不是王室骑兵吗。你们这群和马亲热的烂人们学会直线行走了没有？
+dialogue_tuto_4_2::陛下，臣为您编写了一些关于您之前臣子们的信息，方便陛下随时查阅。其中包括了他们的移动模式以及他们的生命和速度。
+dialogue_tuto_4_3::本王不是让你闭上你那张笨嘴了么！？
+dialogue_tuto_powerup::呼，人间至乐，莫过于闻着火药的气味、看着叛徒被轰散成碎片了！真是越发让本王感受到自己神采飞扬！
+dialogue_tuto_5_1::哇，好一对王室璧人啊？是不是该对你们高呼万岁啊？我倒是可以给你们一个万岁，不过是用铅弹把你们轰成万碎啦，哈哈！
+dialogue_tuto_5_2::本王确信，这群胆小鼠辈，只要见到他们心爱的白王一命呜呼，就会二话不说立马从本王的草坪上滚蛋。
+vig_3_tuto::And now the Black King was truly abandoned by all, with not a rook left to his name. All he had left was his prized royal shotgun, the shreds of his dignity, and the growing fires of the prophesized wrath. Ever my undoing was it? Undone!! Just what more exactly could I lose?!? In his dark folly, the king loaded the shotgun again and went to meet his final checkmate.
+vig_2_tuto::随着白方军队的消散，黑方主教觐见了黑王，呈上了自己言辞痛切的辞职书，书中写到：“陛下虽昏庸，陛下之王权却仍旧神圣。陛下仍对曾经子民的灵魂握有至高的主宰大权。吾等亦仍将对陛下之怒火心怀畏惧。临行臣请以一言进诫，望陛下谨记：虽有神威加身，若动匹夫之怒，亦必自取灭亡。”
+vig_3_tuto::现在黑王已真正被所有人抛弃，名下已经连一座城堡都没有了。他仅剩的就只有自己心爱的王室霰弹枪、他仅存的些许尊严、以及那在他的心中越烧越旺的如预言中昭示的熊熊怒火。亦必自取灭亡？灭亡便灭亡！！一意孤行的国王把霰弹枪再次上膛，前去面对自己最后的将死。
+
+-- ACHIEVEMENT NAMES
+ach_FULL_SET::完整套牌
+ach_WIZARD::巫师
+ach_COMPLETE::完成
+ach_AVENGED::复仇
+ach_EXORCISED::驱魔
+ach_SWARM::人海战术
+ach_LEGION::军团
+ach_SNIPER::狙击手
+ach_ASSASSIN::刺客
+ach_STEROID::类固醇
+ach_TRIGGER_HAPPY::乱枪射击
+ach_SCAVENGER::拾荒者
+ach_HAREM::后宫
+ach_SOCIAL_DISTANCING::社交距离
+ach_RELIGION::宗教
+ach_SECRET::秘密
+ach_SECURITY_SERVICE::安保服务
+ach_INQUISITION::宗教裁判
+ach_MOBILITY::灵活机动
+ach_BOUNDARIES::边界
+ach_MACHINE_GUN::机枪
+ach_SURVIVOR::幸存者
+ach_DEMOLITION::拆除
+ach_HORSEMEN_OF_THE_APOCALYPSE::天启骑士
+ach_ROYAL_RETAINER::王室卫队
+ach_THE_FLOOR_IS_LAVA::地板是岩浆
+ach_EMPEROR::皇帝
+ach_LATE_TO_THE_PARTY::姗姗来迟
+ach_UNEXPECTED_ENTRANCE::意外登场
+ach_SWORDMAN::剑客
+ach_CLIFFHANGER::悬念
+ach_NINJA::忍者
+ach_SLAUGHTER::屠杀
+ach_BENEVOLENCE::仁慈
+ach_BUILDER::建筑师
+ach_SOLOMON::Solomon 所罗门
+ach_VICTORIA::Victoria 维多利亚
+ach_RAMESSES_II::Ramesses II 拉姆西斯二世
+ach_RICHARD_III::Richard III 理查三世
+ach_MAKEDA::Makeda 玛喀妲
+ach_MERCIFUL_RULER::仁君
+ach_A_VELVET_GLOVE::绒制手套
+ach_DELETED::飞速删除
+ach_SQUARE_ALLEGIANCE::黑格之王
+ach_INCARNATION::化身
+ach_LIKE_FATHER_LIKE_SON::父慈子孝
+ach_HUMILIATION::羞辱
+ach_HASTA_LA_VISTA_BABY::Hasta La Vista Baby
+ach_HOW_IT_SHOULD_BE::本该如此
+ach_SHE_IS_EVERYWHERE::处处有她
+ach_MORTAL_PERIL::生命危险
+ach_PROJECTILE_DYSFUNCTION::上弹不力
+ach_HOPE_THIS_HITS::碰碰运气
+ach_NINE_LIVES::九条命
+ach_YOUR_WIFE_MY_WIFE::汝妻吾妻
+ach_A_MIGHTY_FORTRESS::坚固城堡
+ach_UNDERPRESSURE_AMMO::低压弹药
+ach_GLUTTONY::暴食
+ach_IRON_KING::铁王
+ach_WIDOW::遗孀
+ach_YOU_SHALL_NOT_PASS::禁止通行
+ach_BLITZ::闪电战
+ach_BULLET::快如子弹
+ach_SUICIDE_PACT::同归于尽
+ach_OH_NO::哦不！
+ach_MR_PRESIDENT::总统先生！
+ach_LIFEGUARD::救生员
+ach_MMMMH_DELICIEUX::美味！
+ach_rank::等级$0
+
+ach_DANGEROUS_LIFE::生死一线
+ach_NIGHTMARE_ERA::恶梦统治
+ach_DRAUGHTS::跳棋
+ach_PUPPET_MASTER::傀儡师
+ach_HIDDEN_CONSPIRATOR::秘密同谋
+ach_DECEIVER::欺诈师
+ach_STARBURST::星光闪耀
+ach_DETENTION::监禁
+ach_OUT_OF_TIME::打表计时
+ach_JEALOUSY::嫉妒
+ach_DISCREET_HOST::无迹可寻
+ach_FIRST_AID::紧急救助
+
+	--   More shotgun names
+ach_ALEXANDER::Alexander 亚历山大
+ach_YVAN_IV::Yvan IV 伊凡四世
+
+	--   This one is for defeating the secret queen boss
+ach_MARITAL_PEACE::相敬如宾
+	--   This one is for defeating the secret 4 horsemen of the apocalypse boss
+ach_END_OF_THE_WORLD::末日降临
+	--   And this one is for getting the secret ending where the black king steals one of the apocalypse horsemen's horses
+ach_NEW_JOB::走马上任
+
+ach_WORKPLACE_ACCIDENT::意外工伤
+ach_BULLFIGHTING::斗牛
+ach_BURIED_ALIVE::活埋
+ach_COLD_REGICIDE::无情刺杀
+ach_FINAL_ESCAPE::最终逃脱
+ach_HIPPOCRACY::马上执政
+ach_BLOODBATH::血流成河
+ach_ANARCHY::混乱之治
+ach_WARDEN::典狱长
+ach_MIDNIGHT_DANCE::午夜之舞
+
+-- ACHIEVEMENT DESCS
+ach_FULL_SET_desc::拥有10张黑牌
+ach_WIZARD_desc::拥有3根魔杖
+ach_COMPLETE_desc::杀死白王
+ach_AVENGED_desc::杀死黑方主教
+ach_EXORCISED_desc::杀死红色圣书
+ach_cards_desc::以$0、$1和$2获胜
+ach_gun_desc::使用这把霰弹枪通过王座模式
+ach_MERCIFUL_RULER_desc::在不杀死任何兵的情况下完成一个楼层
+ach_A_VELVET_GLOVE_desc::在不杀死任何非领袖棋子的情况下完成一个楼层
+ach_DELETED_desc::在六个回合内完成一个楼层
+ach_SQUARE_ALLEGIANCE_desc::在不移动到白色方块上的情况下完成一个楼层
+ach_INCARNATION_desc::只使用灵魂移动完成一个楼层
+ach_LIKE_FATHER_LIKE_SON_desc::通过把白王的王储扔向他来将其杀死
+ach_HUMILIATION_desc::跳到白王身上杀死他
+ach_HASTA_LA_VISTA_BABY_desc::杀死一枚铁王后
+ach_HOW_IT_SHOULD_BE_desc::让敌方在棋盘上存在2个骑士，2个城堡，2个主教，1个王后，1个国王和8个兵
+ach_SHE_IS_EVERYWHERE_desc::在棋盘上存在至少5个王后
+ach_MORTAL_PERIL_desc::同时被4个棋子威胁
+ach_PROJECTILE_DYSFUNCTION_desc::枪管弹药数量大于弹药储备量
+ach_HOPE_THIS_HITS_desc::散射弧度大于等于120度
+ach_NINE_LIVES_desc::激活黑雾9次
+ach_YOUR_WIFE_MY_WIFE_desc::抓住王后并将她带到战斗开始时的方格上
+ach_A_MIGHTY_FORTRESS_desc::在棋盘上拥有至少6个城堡
+ach_UNDERPRESSURE_AMMO_desc::拥有的火力值等于1
+ach_GLUTTONY_desc::拥有至少20发子弹
+ach_IRON_KING_desc::在王座模式中通关游戏且全程不使用昏招护盾
+ach_WIDOW_desc::在王座模式中通关游戏且全程不杀死王后
+ach_YOU_SHALL_NOT_PASS_desc::在王座模式中通关游戏且全程不让兵晋升
+ach_BLITZ_desc::在5分钟以内通关王座模式
+ach_BULLET_desc::在2分钟以内通关王座模式
+ach_SUICIDE_PACT_desc::使用手雷同时杀死白王和黑王
+ach_OH_NO_desc::被自己的手雷杀死
+ach_MR_PRESIDENT_desc::让城堡保护国王躲过一个飞行棋子的攻击
+ach_LIFEGUARD_desc::将一枚棋子推出护城河
+ach_MMMMH_DELICIEUX_desc::被白王吃掉
+ach_rank_desc::在王座模式中以等级$0难度通关游戏
+
+ach_ALEXANDER_desc::使用这把霰弹枪通过王座模式
+ach_YVAN_IV_desc::使用这把霰弹枪通过王座模式
+ach_MARITAL_PEACE_desc::杀死灾孽
+ach_END_OF_THE_WORLD_desc::杀死天启四骑士
+
+ach_NEW_JOB_desc::抢走一名天启骑士的工作
+ach_WORKPLACE_ACCIDENT_desc::让一枚非兵棋子掉出棋盘
+ach_BULLFIGHTING_desc::让一枚独角兽自杀
+ach_BURIED_ALIVE_desc::只用王陵的伤害杀死国王
+ach_COLD_REGICIDE_desc::在潜行中杀死国王
+ach_FINAL_ESCAPE_desc::在最后倒数期间不对任何棋子造成伤害并完成这一层
+ach_HIPPOCRACY_desc::让骑士统率白军
+ach_BLOODBATH_desc::棋盘上同时存在至少12枚流血的棋子
+ach_ANARCHY_desc::棋盘上同时存在至少4枚国王
+ach_WARDEN_desc::同时有至少8枚棋子被关在牢中
+ach_MIDNIGHT_DANCE_desc::用一次隐藏技获得+4火力
+
+-- LIVE SPECIFIC
+HERO_BestThroneRank::王座模式里的最高等级
+HERO_BestThroneTime::王座模式里的最佳时间（任意等级）
+HERO_BestEndless::无尽模式的最佳楼层
+HERO_HighscoreChase::追逐模式里的最高分数
+Presence_RP_menu::菜单
+Presence_RP_tutorial::教程
+Presence_RP_throne::王座模式 - 等级{0}
+Presence_RP_endless::无尽模式 - 第{0}层
+Presence_RP_chase::追逐模式
+
+-- PSN SPECIFIC
+ach_PLATINIUM::霰弹枪之神
+ach_PLATINIUM_desc::获得所有奖杯
+ui_trophies::奖杯：$0%
+
+-- INTRO
+vig_1::黑王穷奢极侈、昏庸无度。年复一年，他越来越多的子民被白王所提供的更高薪酬和更优质工作所征服。最终他们占领了黑王的城堡，他的骑士们纷纷挂印请辞。就连他的王后也抛弃了他。
+vig_2::最后一名黑方主教在离开前觐见了黑王并告诉他：“陛下虽昏庸，陛下之王权却仍旧神圣。陛下仍对曾经子民的灵魂握有至高的主宰大权。吾等亦仍将对陛下之怒火心怀畏惧。临行臣请以一言进诫，望陛下谨记：虽有神威加身，若动匹夫之怒，亦必自取灭亡。”
+vig_3::然而黑王已被所有人抛弃，名下已经连一座城堡都没有了。他仅剩的就只有自己心爱的王室霰弹枪、他仅存的些许尊严、以及那在他的心中越烧越旺的如预言中昭示的熊熊怒火。亦必自取灭亡？灭亡便灭亡！！一意孤行的国王把霰弹枪上膛，前去面对自己最后的将死。
+
+-- TRANSITION 4 or 5
+vig_4::多年苦心经营才招揽到的新子民……好不容易才让他们感到安全和被接纳……就因为一个端着霰弹枪的王室混蛋，让他们全被轰成了玻璃渣。白王不会再纵容这一切，一层楼都不许再前进了。义愤填膺的他有如天神下凡，誓要将这个狂妄的疯王彻底击碎。
+vig_5::多年苦心经营才招揽到的新子民……好不容易才让他们感到安全和被接纳……就因为一个端着霰弹枪的王室混蛋，让他们全被轰成了玻璃渣。白王不会再纵容这一切，不会再坐视教团引领这个王国走向覆灭。义愤填膺的白王有如天神下凡，誓要将这个狂妄的疯王彻底击碎。
+
+-- ENDING 6-7
+vig_6::黑王的怒火终于就这样将他带向了胜利。现在该由他来夺走白王的城堡与子民们了！他们只得再一次承受黑王可怕的统治……
+vig_7::“开心点儿吧！”他举起霰弹枪哈哈大笑着对他们说，“至少你们没有被轰成碎片啊！”一路所向披靡的黑王没有学到任何的教训。迟早有一天会有一个新的白王出现，故事也会拥有新的开篇。
+
+-- SECRET ENDING 8,9,10,11,12
+vig_8::“哈！看是谁灭亡了谁！！”霰弹国王吼道。可是当主教被消灭时，那本圣书却从他的手中掉落出来，从棋盘上飘起，一路升到了天空的庇护之中……
+vig_9::“哪里跑。”黑王举起尚有子弹上膛的霰弹枪，抬头瞄准……
+vig_10::……然后一枪轰散了圣书，将它变成了满天飞散的书页。“什么狗屁圣书！”他说，“本王和这把霰弹枪才是全天下最神圣的！！”
+vig_11::“开心点儿吧！”他举起霰弹枪哈哈大笑着对他们说，“至少你们没有被轰成碎片啊！”一路所向披靡的黑王没有学到任何的教训。迟早有一天会有一个新的白王出现，故事也会拥有新的开篇。
+vig_12::“开心点儿吧！”他举起霰弹枪哈哈大笑着对他们说，“至少你们没有被轰成碎片啊！”“现在起，颁布新法令！再也不许读书！绝对禁止！把圣书都交出来！从现在开始，我才是你们的神。霰弹枪之神！！”从此，他无情的苛政让所有人永远陷入了恐惧。
+
+
+	--   Shown after defeating the secret boss queen. ("The Blight")
+	--   Should read as not-so-subtle freaky erotica. Don't use direct sexual words but lean hard into the double-entendres. Have fun with it!
+	--   Don't make it too long. The original text is already quite close to the limit of what can be displayed at once.
+vig_13::在那之后的无数个苦闷的不眠之夜，黑王都将不断回忆起那些触手。只是想一想，那些没有骨头的黏滑肢体，摸索着他的周身、将他紧紧攫住、以让人沉醉的力量压制着他，想要榨干他的生命力。王后从来都是那么贪婪和急切……可是从今往后，他将只有冰冷的霰弹枪管作伴，唯有独自寂寞上弹了。
+	--   Then the normal ending is shown.
+
+	--   Shown after the black king steals a horse from one of the secret boss horsemen of the apocalypse and leaves the board.
+	--   The black king found a "job opening" as a horseman of the apocalypse, leaving his old role of king.
+vig_14::猜猜是谁居然在见鬼的末日存在中找到了这么个就职机会？黑王受够了迎合那群可悲而无用的臣民们，果然这才是份配得上王的能力的工作！不过他可不会去做什么预兆，只会驾着那匹恶魔般的坐骑，将死亡与毁灭带去到达的任何地方。撒旦老儿，我们的霰弹国王可是在刚刚正式踏进了邪恶职场，你可得小心点了。
+
+	--   Shown after defeating the secret boss Horsemen of the Apocalypse
+	--   Should mention the artifacts because they are shown in the accompanying illustration. Please do your best to translate the last joke about the horsemen's Last Judgement/Apocalypse being the black king's "thursday". (i.e. a day like any other)
+vig_15::“天启四骑士？我看是天启四弱智！”黑王露出得意的微笑，将那些神器挂在了战利品陈列室中。在过去，主教也曾几次警告过完全没放在心上的黑王，说要小心最终审判的使者和末日的先驱们。好吧，对那四位骑士来说，他们确实迎来了最终审判，可是对霰弹国王来说，他只是度过了一个平平无奇的星期四。
+
+-- PLURALS
+*:s:
+
+
+-- EXAMPLES: child:s:children man:s:men man:6:special men  -> 1 child -> 2 children -> 1 man -> 4 men -> 6 special men -> 7 men
