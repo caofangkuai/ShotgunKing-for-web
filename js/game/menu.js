@@ -312,12 +312,9 @@ function mkMenuBut(id, x, y, w, h) {
         }
         spritesheet('gfx');
         
-        var pico = e.pico;
-        var fntsav;
-        if (pico) {
-            fntsav = font();
-            font('pico');
-        }
+        // Always use pico font for button text (button height = 12px, designed for pico 5px font)
+        var fntsav = font();
+        font('pico');
         
         // NAME - centered
         var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
@@ -341,9 +338,8 @@ function mkMenuBut(id, x, y, w, h) {
             }
         }
         
-        if (pico && fntsav !== 'pico') {
-            font(fntsav);
-        }
+        // Restore font
+        font(fntsav);
     };
     
     return e;
@@ -438,8 +434,13 @@ function initWeaponSelect() {
     var bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
+        // Dark background
         rectfill(0, 0, MCW, MCH, 0);
+        // Decorative border
+        rect(1, 1, MCW - 2, MCH - 2, 1);
+        rect(3, 3, MCW - 4, MCH - 4, 1);
     };
+    menuList.push(bg);
     
     // --- RANK PANEL ---
     var rankPan = mke(0, bx - rpw / 2, MCH);
@@ -453,6 +454,10 @@ function initWeaponSelect() {
     
     rankPan.dr = function(e, px, py) {
         var data = RANKS[e.sel];
+        
+        // Save font and use pico for panel
+        var fntsav = font();
+        font('pico');
         
         // Panel background
         rectfill(px, py, px + rpw - 1, py + rph - 1, 1);
@@ -479,6 +484,9 @@ function initWeaponSelect() {
         var desc = describeRank(data);
         desc = sbs(desc, '%$', lang.degree_symbol || '\u00b0');
         pprint(desc, px + rpw / 2, py + 32 + 8, rpw, 3, 1);
+        
+        // Restore font
+        font(fntsav);
     };
     elements.push(rankPan);
     menuList.push(rankPan);
@@ -544,6 +552,10 @@ function initWeaponSelect() {
             rect(px - 1, py - 1, px + wpw, py + wph, 5);
         }
         
+        // Save font and use pico for panel text
+        var fntsav = font();
+        font('pico');
+        
         // Title - weapon name
         lprint(data.name, px + wpw / 2, py + 3, 3, 1);
         
@@ -608,6 +620,9 @@ function initWeaponSelect() {
             lprint(valStr, stx + lblW + 3, sty, 4);
             col++;
         }
+        
+        // Restore font
+        font(fntsav);
     };
     elements.push(wepPan);
     menuList.push(wepPan);
@@ -692,23 +707,9 @@ function initWeaponSelect() {
     // --- BACK BUTTON ---
     var backBut = mkSquareBut(lang.back || 'BACK', function() {
         sfx('menu_out', 0.7);
-        // Slide panels out
-        var wt = 0;
-        for (var ei = 0; ei < elements.length; ei++) {
-            (function(e) {
-                wait(wt, function() {
-                    mv(e, 0, -MCH, 16);
-                    e.twcv = ease_in;
-                    wait(16, function() { kl(e); });
-                });
-            })(elements[ei]);
-            wt += 6;
-        }
-        wait(wt + 16, function() {
-            closeMenu();
-            menuState = 'title';
-            initMenu();
-        });
+        closeMenu();
+        menuState = 'title';
+        initMenu();
     });
     backBut.x = bx - 32;
     backBut.y = MCH;
@@ -830,9 +831,16 @@ function mkSquareBut(name, action) {
         }
         spritesheet('gfx');
         
+        // Always use pico font for button text (button height = 12px, designed for pico 5px font)
+        var fntsav = font();
+        font('pico');
+        
         // Button text - centered
         var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
         lprint(e.name, x + e.pw / 2, txty, labelc, 1);
+        
+        // Restore font
+        font(fntsav);
     };
     
     return e;

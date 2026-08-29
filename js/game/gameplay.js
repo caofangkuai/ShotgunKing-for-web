@@ -131,6 +131,10 @@ function initGame() {
     sprgrid(16, 16);
     
     buildStack();
+    
+    // Initialize chamber and ammo from weapon stats
+    chamber = stack.chamber_max || 0;
+    ammo = stack.ammo_max || 0;
 }
 
 // === BUILD STACK (aggregate card effects) ===
@@ -513,6 +517,15 @@ function initNewTurn() {
 function newTurn() {
     shields = SET.get('shields');
     if (mode.id === 'tutorial') shields = 2;
+    
+    // Auto-reload chamber from ammo at start of turn
+    if (stack.chamber_max && ammo > 0 && chamber < stack.chamber_max) {
+        while (chamber < stack.chamber_max && ammo > 0) {
+            chamber++;
+            ammo--;
+        }
+    }
+    reloading = null;
     
     // Extra turn
     if (hero.extraTurn && !hero.win) {
@@ -1274,29 +1287,20 @@ function drawPiece(e, x, y) {
 function drawUI() {
     if (!ingame) return;
     
+    // Save current font and use pico for all gameplay UI
+    var savedFont = font();
+    font('pico');
+    
     spritesheet('gfx');
     
-    // Ammo display
-    const ram = ammo - waitAmmo;
-    for (let i = 0; i < (stack.ammo_max || 0); i++) {
-        const y = boardY - 10;
-        sspr(i < ram ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
-    }
-    
-    // Shields
-    const shieldsMax = SET.get('shields');
-    for (let i = 0; i < shieldsMax; i++) {
-        sspr(i < shields ? 32 : 38, 64, 6, 7, boardX + (stack.ammo_max || 0) * 4 + i * 6 + 1, boardY - 10);
-    }
-    
-    // Chamber
+    // Chamber (top row, closest to board)
     const chmax = Math.max(stack.chamber_max || 0, chamber);
     for (let i = 0; i < chmax; i++) {
-        const y = boardY - 19;
+        const y = boardY - 10;
         sspr(i < chamber ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
     }
     
-    // Shotgun
+    // Shotgun sprite (right of chamber)
     spritesheet('weapons');
     let wfr = 96;
     let wfy = 0;
@@ -1304,16 +1308,31 @@ function drawUI() {
         wfy = (mode.weaponsIndex + 1) * 16;
     }
     if (inter && inter.cReload) wfr = 120;
-    sspr(wfr, wfy, 24, 16, boardX + chmax * 4, boardY - 20);
+    var shotgunX = boardX + chmax * 4 + 4;
+    var shotgunY = boardY - 14;
+    sspr(wfr, wfy, 24, 16, shotgunX, shotgunY);
     
     spritesheet('gfx');
     
-    // Floor display
-    const s = (lang.floor_ || 'Floor') + ' ';
-    const lx = lprint(s, MCW / 2, boardY - 19, 3, 1);
-    lprint(String(mode.lvl || 1), lx, boardY - 19, 5);
+    // Ammo display (second row, below chamber)
+    const ram = ammo - waitAmmo;
+    for (let i = 0; i < (stack.ammo_max || 0); i++) {
+        const y = boardY - 3;
+        sspr(i < ram ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
+    }
     
-    // Turn counter
+    // Shields (right of ammo)
+    const shieldsMax = SET.get('shields');
+    for (let i = 0; i < shieldsMax; i++) {
+        sspr(i < shields ? 32 : 38, 64, 6, 7, boardX + (stack.ammo_max || 0) * 4 + i * 6 + 1, boardY - 3);
+    }
+    
+    // Floor display (centered, below board top)
+    const s = (lang.floor_ || 'Floor') + ' ';
+    const lx = lprint(s, MCW / 2, 2, 3, 1);
+    lprint(String(mode.lvl || 1), lx, 2, 5);
+    
+    // Turn counter (bottom left)
     if (mode.turns) {
         lprint(lang.turn || 'Turn', 2, boardY + ymax * SQ + 2, 3);
         lprint(String(mode.turns), 2 + txtwidth(lang.turn || 'Turn') + 4, boardY + ymax * SQ + 2, 5);
@@ -1334,20 +1353,21 @@ function drawUI() {
     if (ingameover) {
         drawGameOverUI();
     }
+    
+    // Restore font
+    font(savedFont);
 }
 
 function drawStatsPanel() {
-    const x = boardX - 27;
-    let y = boardY + 4 * SQ - 20;
+    const x = 2;
     
     const stats = getDispStats();
-    const ec = Math.min(Math.floor(128 / Math.max(1, stats.length)), 16);
-    let cy = boardY + 4 * SQ - stats.length * ec / 2;
-    if (stack.special && stack.special !== 'none') cy -= 16;
+    const ec = 8;
+    let cy = boardY + ymax * SQ - stats.length * ec;
     
     for (const s of stats) {
         lprint(s.name, x, cy, 3);
-        lprint(s.value, x + 20, cy, 5);
+        lprint(s.value, x + 28, cy, 5);
         cy += ec;
     }
     
@@ -1372,33 +1392,44 @@ function getDispStats() {
 
 function drawCardsPanel() {
     const x = boardX + xmax * SQ + 3;
-    let y = boardY;
+    const startY = boardY;
+    const cardH = 14;
+    const maxSlots = 10;
     
     if (!cardSlots) return;
     
-    for (let i = 0; i < cardSlots.length; i++) {
+    // Calculate how many slots can fit vertically
+    var availH = MCH - startY - 2;
+    var slotH = Math.min(cardH, Math.floor(availH / maxSlots));
+    
+    for (let i = 0; i < maxSlots; i++) {
         const sl = cardSlots[i];
-        if (!sl || !sl.ca) continue;
-        
-        const ca = sl.ca;
-        
-        // Card background
         const cx = x;
-        const cy = y + i * 18;
+        const cy = startY + i * slotH;
         
-        if (ca.flipped) {
-            // Torn/flipped card
-            rectfill(cx, cy, cx + 22, cy + 16, 1);
-            lprint('...', cx + 4, cy + 4, 5);
+        if (!sl || !sl.ca) {
+            // Empty slot indicator
+            rectfill(cx, cy, cx + 22, cy + slotH - 1, 1);
+            rect(cx, cy, cx + 22, cy + slotH - 1, 0);
         } else {
-            // Active card
-            const team = ca.team || 0;
-            rectfill(cx, cy, cx + 22, cy + 16, team === 1 ? 4 : 5);
-            rect(cx, cy, cx + 22, cy + 16, 0);
+            const ca = sl.ca;
             
-            // Card name (short)
-            const name = ca.id.length > 10 ? ca.id.substring(0, 10) : ca.id;
-            lprint(name, cx + 2, cy + 2, team === 1 ? 7 : 0);
+            if (ca.flipped) {
+                // Flipped card
+                rectfill(cx, cy, cx + 22, cy + slotH - 1, 1);
+                rect(cx, cy, cx + 22, cy + slotH - 1, 0);
+                lprint('x', cx + 8, cy + 2, 5);
+            } else {
+                // Active card
+                const team = ca.team || 0;
+                rectfill(cx, cy, cx + 22, cy + slotH - 1, team === 1 ? 4 : 5);
+                rect(cx, cy, cx + 22, cy + slotH - 1, 0);
+                
+                // Card name (truncated)
+                var name = ca.id || '';
+                if (name.length > 8) name = name.substring(0, 8);
+                lprint(name, cx + 2, cy + 2, team === 1 ? 7 : 0);
+            }
         }
     }
 }
