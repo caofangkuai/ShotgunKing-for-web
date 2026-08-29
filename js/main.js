@@ -8,6 +8,8 @@ let mcl = false;     // mouse click lock
 let assetsLoaded = false;
 let assetsToLoad = 0;
 let assetsLoadedCount = 0;
+let loadingProgress = 0;
+let loadingPhase = 'sprites'; // 'sprites', 'audio', 'done'
 
 // === MAIN INITIALIZATION ===
 async function main() {
@@ -48,8 +50,11 @@ async function main() {
     await Sugar.loadAllFonts();
     font(Lang.fontName || 'pico');
     
-    // Load spritesheets
-    await loadAllAssets();
+    // Start game loop IMMEDIATELY so loading screen can render
+    gameLoop();
+    
+    // Load spritesheets (needed for rendering)
+    await loadAllSpritesheets();
     
     // Apply options
     Save.applyOptions();
@@ -61,11 +66,17 @@ async function main() {
     // Boot sequence
     boot();
     
-    // Start game loop
-    gameLoop();
+    assetsLoaded = true;
+    loadingPhase = 'audio';
+    
+    // Load audio files in BACKGROUND (parallel, non-blocking)
+    loadAllAudio().then(() => {
+        loadingPhase = 'done';
+        console.log('All audio assets loaded.');
+    });
 }
 
-async function loadAllAssets() {
+async function loadAllSpritesheets() {
     const spritesheets = [
         { name: 'gfx', src: 'assets/gfx/gfx.png' },
         { name: 'title', src: 'assets/gfx/title.png' },
@@ -82,13 +93,15 @@ async function loadAllAssets() {
     }
     
     await Promise.all(promises);
-    
-    // Load SFX
+    loadingProgress = 0.5;
+}
+
+async function loadAllAudio() {
     const sfxFiles = [
         'abort_mission', 'alleluia', 'ammo', 'arrow', 'ascend', 'backup_call',
         'backup_land', 'blade', 'boost', 'boss_crumble', 'boss_jump', 'boss_land',
         'boulder_launch', 'boulder_xpl', 'cancel', 'card_land', 'castle', 'catch',
-        'charge', 'cloak_in', 'cloak_out', 'crystal_xpl', 'curtain', 'detected',
+        'charge', 'cloak_in', 'cloak_out', 'crystal_xpl', 'detected',
         'disarm', 'disrupt', 'dmg_cap', 'eat', 'execute', 'extra_turn', 'fall',
         'flash_boss', 'flip_back', 'glue', 'grab_cancel', 'grab_done', 'grenade_beep',
         'grenade_bounce', 'grenade_fall', 'grenade_xpl', 'gust', 'head_bump',
@@ -108,10 +121,9 @@ async function loadAllAssets() {
         'vampire_eat', 'vampire_suck', 'wand', 'water_poison', 'wrong', 'wrong_shield',
         'xpl', 'apo_jump', 'apo_sing_0', 'apo_sing_1', 'apo_sing_2', 'apo_sing_3',
         'apo_sit', 'apo_talk', 'bishop_resist', 'black_mist', 'book_float',
-        'boulder_launch', 'boulder_xpl', 'boss_crumble', 'crown_fly', 'decay_jingle',
-        'disguise', 'execute_disruption', 'hypno_execute', 'hypnosys', 'inc_countdown',
-        'incantation', 'conscription', 'holo_vanish', 'caltrops', 'recycle_new',
-        'refill_wand', 'dmg_cap', 'wrong_shield', 'shell_ground', 'shell_spark',
+        'crown_fly', 'decay_jingle', 'disguise', 'execute_disruption',
+        'hypno_execute', 'hypnosys', 'inc_countdown', 'conscription',
+        'holo_vanish', 'caltrops',
     ];
     
     const musicFiles = [
@@ -121,17 +133,16 @@ async function loadAllAssets() {
         'gameover', 'gameover_w_fx', 'level_up_A', 'level_up_B',
     ];
     
-    // Load all SFX
+    // Load ALL audio files in PARALLEL
+    const promises = [];
     for (const name of sfxFiles) {
-        await AudioManager.loadSfx(name, `assets/sfx/${name}.wav`);
+        promises.push(AudioManager.loadSfx(name, `assets/sfx/${name}.wav`));
     }
-    
-    // Load all music
     for (const name of musicFiles) {
-        await AudioManager.loadMusic(name, `assets/music/${name}.mp3`);
+        promises.push(AudioManager.loadMusic(name, `assets/music/${name}.mp3`));
     }
     
-    console.log('All assets loaded.');
+    await Promise.all(promises);
 }
 
 function genGfx() {
@@ -246,6 +257,27 @@ function _update() {
 }
 
 function _draw() {
+    // Loading screen - show while assets are loading
+    if (loadingPhase !== 'done') {
+        cls(0);
+        // Draw loading bar
+        const barW = 120;
+        const barH = 8;
+        const barX = (320 - barW) / 2;
+        const barY = 90;
+        const label = loadingPhase === 'sprites' ? 'LOADING GRAPHICS...' : 'LOADING AUDIO...';
+        const txtW = txtwidth(label);
+        lprint(label, (320 - txtW) / 2, barY - 12, 6);
+        rectfill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 5);
+        rectfill(barX, barY, barX + barW, barY + barH, 1);
+        if (loadingPhase === 'sprites') {
+            rectfill(barX, barY, barX + barW * loadingProgress * 2, barY + barH, 11);
+        } else {
+            rectfill(barX, barY, barX + barW, barY + barH, 11);
+        }
+        return;
+    }
+    
     // Use mdr if set, otherwise draw entities
     if (mdr) {
         mdr();

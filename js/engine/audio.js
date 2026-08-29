@@ -30,8 +30,11 @@ const AudioManager = {
             const audio = new Audio();
             audio.src = path;
             audio.preload = 'auto';
-            audio.addEventListener('canplaythrough', () => { resolve(); }, { once: true });
-            audio.addEventListener('error', () => { resolve(); }, { once: true });
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            audio.addEventListener('canplaythrough', finish, { once: true });
+            audio.addEventListener('error', finish, { once: true });
+            setTimeout(finish, 3000); // 3s timeout
             this.sfx[name] = audio;
         });
     },
@@ -42,8 +45,11 @@ const AudioManager = {
             audio.src = path;
             audio.preload = 'auto';
             audio.loop = true;
-            audio.addEventListener('canplaythrough', () => { resolve(); }, { once: true });
-            audio.addEventListener('error', () => { resolve(); }, { once: true });
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            audio.addEventListener('canplaythrough', finish, { once: true });
+            audio.addEventListener('error', finish, { once: true });
+            setTimeout(finish, 3000); // 3s timeout
             this.music[name] = audio;
         });
     },
