@@ -472,11 +472,155 @@ const Sugar = {
     },
     
     // === TEXT ===
+    
+    // Hardcoded PICO-8 font masks (extracted from pico_font.png)
+    // Each mask is a 20-char string (4px wide × 5px tall), '1'=on, '0'=off
+    PICO_FONT_MASKS: {
+        '!': '01000100010000000100',
+        '"': '10101010000000000000',
+        '#': '10101110101011101010',
+        '$': '01001010010000000000',
+        '%': '10100010010010001010',
+        '&': '00001010111011100100',
+        "'": '01001000000000000000',
+        '(': '01001000100010000100',
+        ')': '01000010001000100100',
+        '*': '10100100111001001010',
+        '+': '00000100111001000000',
+        ',': '00000000000001001000',
+        '-': '00000000111000000000',
+        '.': '00000000000000000100',
+        '/': '00000100010010001000',
+        '0': '11101010101010101110',
+        '1': '01001100010001001110',
+        '2': '11100010111010001110',
+        '3': '11100010011000101110',
+        '4': '10101010111000100010',
+        '5': '11101000111000101110',
+        '6': '11101000111010101110',
+        '7': '11100010001000100010',
+        '8': '11101010111010101110',
+        '9': '11101010111000101110',
+        ':': '00000100000001000000',
+        ';': '00000100000001000100',
+        '<': '00100100100001000010',
+        '=': '00001110000011100000',
+        '>': '10000100001001001000',
+        '?': '11100010011000000100',
+        '@': '11101010111010101010',
+        'A': '11101010110010101110',
+        'B': '11101000100010001110',
+        'C': '11001010101010101100',
+        'D': '11101000110010001110',
+        'E': '11101000110010001000',
+        'F': '11101000100010101110',
+        'G': '10101010111010101010',
+        'H': '11100100010001001110',
+        'I': '01100010001010101110',
+        'J': '10101010110010101010',
+        'K': '10001000100010001110',
+        'L': '11101110101010101010',
+        'M': '11001010101010101010',
+        'N': '01101010101010101100',
+        'O': '11101010111010001000',
+        'P': '01001010101011000110',
+        'Q': '11101010110010101010',
+        'R': '01101000111000101100',
+        'S': '11100100010001000100',
+        'T': '10101010101010101110',
+        'U': '10101010101011100100',
+        'V': '10101010101011101110',
+        'W': '10101010010010101010',
+        'X': '10101010111000101110',
+        'Y': '11100010010010001110',
+        'Z': '01100100010001000110',
+        '[': '00000100010000100010',
+        '\\': '11000100010001001100',
+        ']': '01001010000000000000',
+        '^': '00000000000000001110',
+        '_': '01000000000000000000',
+        '`': '01000000000000000000',
+        'a': '11101010111010101010',
+        'b': '11101010110010101110',
+        'c': '11101000100010001110',
+        'd': '11001010101010101100',
+        'e': '11101000110010001110',
+        'f': '11101000110010001000',
+        'g': '11101000100010101110',
+        'h': '10101010111010101010',
+        'i': '11100100010001001110',
+        'j': '01100010001010101110',
+        'k': '10101010110010101010',
+        'l': '10001000100010001110',
+        'm': '11101110101010101010',
+        'n': '11001010101010101010',
+        'o': '01101010101010101100',
+        'p': '11101010111010001000',
+        'q': '01001010101011000110',
+        'r': '11101010110010101010',
+        's': '01101000111000101100',
+        't': '11100100010001000100',
+        'u': '10101010101010101110',
+        'v': '10101010101011100100',
+        'w': '10101010101011101110',
+        'x': '10101010010010101010',
+        'y': '10101010111000101110',
+        'z': '11100010010010001110',
+        '{': '01000100111011100000',
+        '|': '01000100010001000100',
+        '}': '00001110111001000100',
+        '~': '00000010111010000000',
+    },
+    
+    // Get font mask for a character (with hardcoded fallback)
+    getFontMask(ch) {
+        var f = this.fonts[this.currentFont];
+        if (f && f.masks && f.masks[ch]) {
+            return f.masks[ch];
+        }
+        // Fallback to hardcoded masks (convert string to boolean array)
+        if (this.PICO_FONT_MASKS && this.PICO_FONT_MASKS[ch]) {
+            var s = this.PICO_FONT_MASKS[ch];
+            var arr = [];
+            for (var i = 0; i < s.length; i++) {
+                arr.push(s[i] === '1');
+            }
+            return arr;
+        }
+        return null;
+    },
+    
     addfont(name, overlay, src, charset) {
         if (typeof src === 'string' && src.endsWith('.png')) {
-            // Bitmap font from image
+            // Bitmap font from image - extract pixel masks
             return this.loadSpritesheet(name + '_font', src).then(img => {
-                this.fonts[name] = { type: 'bitmap', img: img, charset: charset, dy: 0, h: 7, overlay: overlay };
+                if (img) {
+                    var charW = 4, charH = 5;
+                    var masks = {};
+                    try {
+                        var tc = document.createElement('canvas');
+                        tc.width = img.width; tc.height = img.height;
+                        var tctx = tc.getContext('2d');
+                        tctx.drawImage(img, 0, 0);
+                        var imgData = tctx.getImageData(0, 0, img.width, img.height);
+                        var data = imgData.data;
+                        var numChars = Math.floor(img.width / charW);
+                        var cs = charset || '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
+                        for (var ci = 0; ci < numChars && ci < cs.length; ci++) {
+                            var ch = cs[ci];
+                            var mask = [];
+                            for (var py = 0; py < charH; py++) {
+                                for (var px = 0; px < charW; px++) {
+                                    var sx = ci * charW + px;
+                                    var pi = (py * img.width + sx) * 4;
+                                    mask.push(data[pi] > 40 || data[pi+1] > 40 || data[pi+2] > 40);
+                                }
+                            }
+                            masks[ch] = mask;
+                        }
+                    } catch(e) { console.warn('Font mask extraction failed:', e); }
+                    this.fonts[name] = { type: 'bitmap', masks: masks, charW: charW, charH: charH, charset: charset, dy: 0, h: 7, overlay: overlay };
+                }
             });
         } else if (typeof src === 'string' && src.endsWith('.ttf')) {
             // TrueType font
@@ -497,11 +641,62 @@ const Sugar = {
             { name: 'pico', src: 'assets/gfx/pico_font.png', type: 'bitmap' },
         ];
         
+        // Standard ASCII charset starting from '!' (code 33) to '~' (code 126)
+        var picoCharset = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
         const promises = [];
         for (const f of fontList) {
             if (f.type === 'bitmap') {
                 promises.push(this.loadSpritesheet(f.name + '_font', f.src).then(img => {
-                    this.fonts[f.name] = { type: 'bitmap', img: img, dy: 0, h: 7, overlay: false, charset: '!\"#°%&\'()*+,-./0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`@abcdefghijklmnopqrstuvwxyz{|}~⓵⓶⓷⓸éèêôû' };
+                    if (img) {
+                        var charW = 4;
+                        var charH = 5;
+                        var masks = null;
+                        // Try to extract pixel masks via getImageData
+                        try {
+                            var tmpCanvas = document.createElement('canvas');
+                            tmpCanvas.width = img.width;
+                            tmpCanvas.height = img.height;
+                            var tctx = tmpCanvas.getContext('2d');
+                            tctx.drawImage(img, 0, 0);
+                            var imgData = tctx.getImageData(0, 0, img.width, img.height);
+                            var data = imgData.data;
+                            var numChars = Math.floor(img.width / charW);
+                            var extracted = {};
+                            for (var ci = 0; ci < numChars && ci < picoCharset.length; ci++) {
+                                var ch = picoCharset[ci];
+                                var mask = [];
+                                for (var py = 0; py < charH; py++) {
+                                    for (var px = 0; px < charW; px++) {
+                                        var sx = ci * charW + px;
+                                        var pixelIdx = (py * img.width + sx) * 4;
+                                        var r = data[pixelIdx];
+                                        var g = data[pixelIdx + 1];
+                                        var b = data[pixelIdx + 2];
+                                        mask.push(r > 40 || g > 40 || b > 40);
+                                    }
+                                }
+                                extracted[ch] = mask;
+                            }
+                            // Verify extraction worked (at least some chars have non-empty masks)
+                            var nonEmpty = 0;
+                            for (var k in extracted) {
+                                if (extracted[k].some(function(v) { return v; })) nonEmpty++;
+                            }
+                            if (nonEmpty > 10) {
+                                masks = extracted;
+                                console.log('Pico font loaded via getImageData: ' + nonEmpty + ' chars');
+                            } else {
+                                console.warn('getImageData returned empty masks, using hardcoded fallback');
+                            }
+                        } catch (e) {
+                            console.warn('Failed to extract font masks (CORS?), using hardcoded fallback:', e.message);
+                        }
+                        // Always store the font - drawBitmapText will use getFontMask() which checks hardcoded fallback
+                        this.fonts[f.name] = { type: 'bitmap', masks: masks, charW: charW, charH: charH, dy: 0, h: 7, charset: picoCharset };
+                    } else {
+                        console.warn('Pico font image failed to load, using hardcoded fallback');
+                        this.fonts[f.name] = { type: 'bitmap', masks: null, charW: 4, charH: 5, dy: 0, h: 7, charset: picoCharset };
+                    }
                 }));
             } else {
                 // FontFace.load() can hang on mobile - add 3s timeout per font
@@ -562,7 +757,7 @@ const Sugar = {
         const tx = Math.floor(rx + this.camX);
         
         if (f && f.type === 'bitmap') {
-            // Bitmap font (pico font)
+            // Bitmap font (pico font) - using pixel masks with hardcoded fallback
             this.drawBitmapText(str, tx, ty, c, outline);
         } else if (f && f.type === 'ttf') {
             ctx.font = `${f.sz || 12}px ${f.name || this.currentFont}`;
@@ -580,6 +775,12 @@ const Sugar = {
             
             ctx.fillStyle = this.getColor(c);
             ctx.fillText(str, tx, ty + (f.dy || 0));
+        } else {
+            // Fallback: Canvas API when no font is loaded (mobile timeout)
+            ctx.font = '8px monospace';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = this.getColor(c);
+            ctx.fillText(str, tx, ty);
         }
         
         return rx;
@@ -619,43 +820,46 @@ const Sugar = {
         return cy + lh;
     },
     
-    // Bitmap font drawing (pico font - 4px wide chars)
+    // Bitmap font drawing (pico font - 4px wide chars, pixel mask based)
     drawBitmapText(str, x, y, c, outline) {
-        const f = this.fonts[this.currentFont];
-        if (!f || !f.img) return;
-        const charset = f.charset || '!\"#°%&\'()*+,-./0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`@abcdefghijklmnopqrstuvwxyz{|}~⓵⓶⓷⓸éèêôû';
+        var f = this.fonts[this.currentFont];
+        var ctx = this.getTargetCtx();
+        var charW = (f && f.charW) || 4;
+        var charH = (f && f.charH) || 5;
+        var mainColor = this.getColor(c);
+        var outlineColor = (outline !== undefined && outline !== null) ? this.getColor(outline) : null;
         
-        const ctx = this.getTargetCtx();
-        const charW = 4;
-        const charH = 5;
-        const color = this.getColor(c);
-        
-        // Use a temp canvas for color tinting
-        if (!this._fontTmp) {
-            this._fontTmp = document.createElement('canvas');
-            this._fontTmp.width = charW;
-            this._fontTmp.height = charH;
-        }
-        const tc = this._fontTmp;
-        const tctx = tc.getContext('2d');
-        
-        for (let i = 0; i < str.length; i++) {
-            const ch = str[i];
-            const idx = charset.indexOf(ch);
-            if (idx >= 0) {
-                // Single row layout: pico_font.png is 435x7 (single row of 4px chars)
-                const sx = idx * charW;
-                const sy = 0;
-                
-                // Tint: draw character, then use source-in to replace color
-                tctx.clearRect(0, 0, charW, charH);
-                tctx.drawImage(f.img, sx, sy, charW, charH, 0, 0, charW, charH);
-                tctx.globalCompositeOperation = 'source-in';
-                tctx.fillStyle = color;
-                tctx.fillRect(0, 0, charW, charH);
-                tctx.globalCompositeOperation = 'source-over';
-                
-                ctx.drawImage(tc, 0, 0, charW, charH, x + i * charW, y, charW, charH);
+        for (var i = 0; i < str.length; i++) {
+            var ch = str[i];
+            var mask = this.getFontMask(ch);
+            if (!mask) continue;
+            var cx = x + i * charW;
+            
+            // Draw outline first (8 directions)
+            if (outlineColor) {
+                ctx.fillStyle = outlineColor;
+                for (var dx = -1; dx <= 1; dx++) {
+                    for (var dy = -1; dy <= 1; dy++) {
+                        if (dx === 0 && dy === 0) continue;
+                        for (var py = 0; py < charH; py++) {
+                            for (var px = 0; px < charW; px++) {
+                                if (mask[py * charW + px]) {
+                                    ctx.fillRect(cx + px + dx, y + py + dy, 1, 1);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Draw main character
+            ctx.fillStyle = mainColor;
+            for (var py = 0; py < charH; py++) {
+                for (var px = 0; px < charW; px++) {
+                    if (mask[py * charW + px]) {
+                        ctx.fillRect(cx + px, y + py, 1, 1);
+                    }
+                }
             }
         }
     },

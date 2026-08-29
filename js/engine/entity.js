@@ -84,8 +84,8 @@ const Entity = {
             if (Math.floor(e.blink / 2) % 2 === 0) return;
         }
         
-        // Draw sprite
-        if (e.fr !== undefined && e.fr !== null && e.fr >= 0) {
+        // Draw sprite (only if fr > 0 - fr=0 means "no sprite", custom dr handles drawing)
+        if (e.fr !== undefined && e.fr !== null && e.fr > 0) {
             spr(e.fr, x, y, 1, 1 + 3/16);
         }
         

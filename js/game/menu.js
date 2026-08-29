@@ -30,8 +30,10 @@ function initMenu(gotoPlay) {
     // Background
     const bg = mke(0, 0, 0);
     bg.dp = DP_BG;
+    bg.menuOpened = false;
     bg.upd = function() {
-        if (intro && bg.t > 240 && (Input.mouse.pressed || btnp('validate'))) {
+        if (intro && bg.t > 240 && !bg.menuOpened && (Input.mouse.pressed || btnp('validate'))) {
+            bg.menuOpened = true;
             sfx('start', 0.75);
             wait(5, () => openMenu());
         }
@@ -162,7 +164,7 @@ function initMenu(gotoPlay) {
 function openMenu(a, type) {
     closeMenu();
     menuList = [];
-    menuSelIndex = -1;
+    menuSelIndex = 0;
     
     if (!a) {
         a = ['play', 'options', 'quit'];
@@ -188,7 +190,7 @@ function openMenu(a, type) {
     for (var i = 0; i < a.length; i++) {
         var name = a[i];
         var by = py + ma + i * ecy - 2;
-        var m = mkMenuBut(name, px, by, pw, ecy - 2);
+        var m = mkMenuBut(name, px, by, pw, ecy + 2);
         m.menuIndex = i;
         menuList.push(m);
         
@@ -400,146 +402,440 @@ function closeMenu() {
     menuList = [];
 }
 
-// === WEAPON SELECTION ===
+// === WEAPON & RANK SELECTION (Combined - matches Android UI) ===
 function initWeaponSelect() {
     reset();
     menuList = [];
     selectedWeapon = ThroneMode.weaponsIndex || 0;
+    selectedRank = ThroneMode.ranksIndex || 0;
+    var maxRank = Save.data.prog.throne ? (Save.data.prog.throne.rank || 0) : 0;
+    
     fadeTo(0, 20);
     
+    var bx = 240;       // center X for panels
+    var ec = 6;         // element gap
+    var tma = 12;       // top margin area (for weapon sprite)
+    
+    // Calculate total height and starting Y
+    var th = 0;
+    // Rank panel
+    var rpw = 128, rph = 48;
+    th += rph;
+    // Weapon panel
+    var wpw = 136, wph = 64;
+    th += ec + wph;
+    // Start button
+    var sbw = 64, sbh = BUTTON_HEIGHT;
+    th += ec + sbh;
+    // Back button
+    th += ec + sbh;
+    
+    var startY = (MCH - th) / 2;
+    
+    var elements = [];
+    
+    // --- Background ---
     var bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
         rectfill(0, 0, MCW, MCH, 0);
-        
-        lprint(lang.choose_weapon || 'Choose Your Weapon', MCW / 2, 8, 7, 1);
-        
-        var w = WEAPONS[selectedWeapon];
-        if (w) {
-            lprint(w.name, MCW / 2, 24, 10, 1);
-            
-            var y = 40;
-            var stats = [
-                { name: lang.power || 'Power', val: w.firepower },
-                { name: lang.range || 'Range', val: w.firerange },
-                { name: lang.chamber || 'Chamber', val: w.chamber_max },
-                { name: lang.ammo || 'Ammo', val: w.ammo_max },
-                { name: lang.spread || 'Spread', val: w.spread + '\u00b0' },
-            ];
-            if (w.knockback) stats.push({ name: lang.knock || 'Knock', val: w.knockback + '%' });
-            if (w.pierce) stats.push({ name: lang.pierc || 'Pierce', val: w.pierce + '%' });
-            if (w.blade) stats.push({ name: lang.blade || 'Blade', val: w.blade });
-            if (w.search) stats.push({ name: lang.search || 'Search', val: w.search });
-            
-            for (var i = 0; i < stats.length; i++) {
-                var s = stats[i];
-                lprint(s.name + ':', 60, y, 3);
-                lprint(String(s.val), 260, y, 5, 2);
-                y += 10;
-            }
-        }
-        
-        lprint('< ' + (lang.select || 'Select') + ' >', MCW / 2, MCH - 16, 7, 1);
-        lprint(lang.press_enter || 'Press Enter', MCW / 2, MCH - 8, 5, 1);
     };
     
-    var input = mke(0, 0, 0);
-    input.dp = DP_TOP;
-    input.upd = function() {
-        if (btnp('left')) {
-            selectedWeapon = (selectedWeapon - 1 + WEAPONS.length) % WEAPONS.length;
-            sfx('sel_opt');
+    // --- RANK PANEL ---
+    var rankPan = mke(0, bx - rpw / 2, MCH);
+    rankPan.dp = DP_TOP;
+    rankPan.pw = rpw;
+    rankPan.ph = rph;
+    rankPan.sel = selectedRank;
+    rankPan.smax = Math.min(RANKS.length - 1, maxRank);
+    rankPan.selected = false;
+    rankPan.ady = 8;
+    
+    rankPan.dr = function(e, px, py) {
+        var data = RANKS[e.sel];
+        
+        // Panel background
+        rectfill(px, py, px + rpw - 1, py + rph - 1, 1);
+        if (e.selected) {
+            rect(px - 1, py - 1, px + rpw, py + rph, 5);
         }
-        if (btnp('right')) {
-            selectedWeapon = (selectedWeapon + 1) % WEAPONS.length;
-            sfx('sel_opt');
+        
+        // Title
+        lprint(lang.rank || 'Rank', px + rpw / 2, py + 3, 3, 1);
+        
+        // Rank number (large sprite-style)
+        var s = (e.sel + 1) + '';
+        var numBx = px + rpw / 2 - s.length * 8;
+        pal(3, 4);
+        for (var i = 0; i < s.length; i++) {
+            var k = parseInt(s[i]);
+            if (!isNaN(k)) {
+                sspr(k * 16, 256, 16, 16, numBx + i * 16, py + 12);
+            }
         }
-        if (btnp('validate')) {
-            sfx('menu_in');
-            ThroneMode.weaponsIndex = selectedWeapon;
-            closeMenu();
-            menuState = 'rank_select';
-            initRankSelect();
+        pal();
+        
+        // Description
+        var desc = describeRank(data);
+        desc = sbs(desc, '%$', lang.degree_symbol || '\u00b0');
+        pprint(desc, px + rpw / 2, py + 32 + 8, rpw, 3, 1);
+    };
+    elements.push(rankPan);
+    menuList.push(rankPan);
+    
+    // Rank arrows
+    for (var ai = 0; ai < 2; ai++) {
+        (function(ai) {
+            var ar = mke(0, 3 + (rpw - 14) * ai, 8);
+            ar.dp = DP_TOP;
+            add_child(rankPan, ar);
+            ar.vis = true;
+            ar.dr = function(e, x, y) {
+                ar.vis = true;
+                if ((ai === 0 && rankPan.sel === 0) || (ai === 1 && rankPan.sel >= rankPan.smax)) {
+                    ar.vis = false;
+                    return;
+                }
+                var cl = rankPan.selected ? 4 : 5;
+                spritesheet('gfx');
+                if (ai === 0) {
+                    // Left arrow
+                    sspr(192, 160, 8, 24, x, y, 8, 24, false);
+                } else {
+                    // Right arrow (flipped)
+                    sspr(192, 160, 8, 24, x, y, 8, 24, true);
+                }
+            };
+            ar.upd = function() {
+                if (!ar.vis) return;
+                var wx = rankPan.x + ar.x;
+                var wy = rankPan.y + ar.y;
+                if (Input.mouse.x >= wx && Input.mouse.x < wx + 8 &&
+                    Input.mouse.y >= wy && Input.mouse.y < wy + 24 &&
+                    Input.mouse.pressed) {
+                    var inc = ai * 2 - 1; // -1 for left, +1 for right
+                    rankPan.sel = mid(0, rankPan.sel + inc, rankPan.smax);
+                    selectedRank = rankPan.sel;
+                    sfx('sel_opt', 0.4);
+                }
+            };
+            if (ai === 0) rankPan.prev_ar = ar; else rankPan.next_ar = ar;
+        })(ai);
+    }
+    
+    // --- WEAPON PANEL ---
+    var wepPan = mke(0, bx - wpw / 2, MCH);
+    wepPan.dp = DP_TOP;
+    wepPan.pw = wpw;
+    wepPan.ph = wph;
+    wepPan.sel = selectedWeapon;
+    wepPan.smax = WEAPONS.length - 1;
+    wepPan.selected = false;
+    wepPan.ady = 8;
+    
+    wepPan.dr = function(e, px, py) {
+        var i = e.sel;
+        var data = WEAPONS[i];
+        if (!data) return;
+        
+        // Panel background
+        rectfill(px, py, px + wpw - 1, py + wph - 1, 1);
+        if (e.selected) {
+            rect(px - 1, py - 1, px + wpw, py + wph, 5);
         }
-        if (btnp('cancel')) {
-            sfx('menu_out');
+        
+        // Title - weapon name
+        lprint(data.name, px + wpw / 2, py + 3, 3, 1);
+        
+        // Weapon sprite with border
+        var sprX = px + 20;  // 16 + 4
+        var sprY = py + tma + 4;  // 12 + 4 = 16
+        spritesheet('weapons');
+        // Draw border (rect around sprite area)
+        rect(sprX - 1, sprY - 1, sprX + 96, sprY + 24, 4);
+        // Draw weapon sprite
+        sspr(0, i * 24, 96, 24, sprX, sprY);
+        spritesheet('gfx');
+        
+        // AMMO display
+        var ammoX = px + wpw - 16 - (data.chamber_max + data.ammo_max + 1) * 4 - 4;
+        var ammoY = py + 28 + 8;  // = py + 36
+        
+        // Chamber bullets
+        for (var ci = 0; ci < data.chamber_max; ci++) {
+            sspr(4, 56, 3, 7, ammoX, ammoY);
+            ammoX += 4;
+        }
+        // Separator
+        sspr(83, 48, 3, 6, ammoX, ammoY + 1);
+        ammoX += 4;
+        // Ammo bullets
+        for (var ai2 = 0; ai2 < data.ammo_max; ai2++) {
+            sspr(4, 56, 3, 7, ammoX, ammoY);
+            ammoX += 4;
+        }
+        
+        // STATS
+        var statIds = ['firepower', 'firerange', 'spread', 'knockback', 'blade', 'pierce', 'search', 'all_freereload'];
+        var sx = px + 10;
+        var sy = py + 48;
+        var col = 0;
+        
+        for (var si = 0; si < statIds.length; si++) {
+            var id = statIds[si];
+            var val = data[id];
+            if (val === undefined || val === null) continue;
+            
+            var lbl;
+            if (id === 'all_freereload') {
+                lbl = lang.effect_freereload || 'Free Reload';
+            } else {
+                lbl = (lang[id] || id) + ':';
+            }
+            
+            var stx = sx + (col % 2) * 62;
+            var sty = sy + Math.floor(col / 2) * 7;
+            
+            lprint(lbl, stx, sty, 3);
+            
+            var valStr = String(val);
+            if (id === 'spread') valStr += lang.degree_symbol || '\u00b0';
+            if (id === 'knockback') valStr += '%';
+            if (id === 'pierce') valStr += '%';
+            if (id === 'all_freereload') valStr = '';
+            
+            var lblW = txtwidth(lbl);
+            lprint(valStr, stx + lblW + 3, sty, 4);
+            col++;
+        }
+    };
+    elements.push(wepPan);
+    menuList.push(wepPan);
+    
+    // Weapon arrows
+    for (var wi = 0; wi < 2; wi++) {
+        (function(wi) {
+            var ar = mke(0, 3 + (wpw - 14) * wi, 14);
+            ar.dp = DP_TOP;
+            add_child(wepPan, ar);
+            ar.vis = true;
+            ar.dr = function(e, x, y) {
+                ar.vis = true;
+                if ((wi === 0 && wepPan.sel === 0) || (wi === 1 && wepPan.sel >= wepPan.smax)) {
+                    ar.vis = false;
+                    return;
+                }
+                var cl = wepPan.selected ? 4 : 5;
+                spritesheet('gfx');
+                if (wi === 0) {
+                    sspr(192, 160, 8, 24, x, y, 8, 24, false);
+                } else {
+                    sspr(192, 160, 8, 24, x, y, 8, 24, true);
+                }
+            };
+            ar.upd = function() {
+                if (!ar.vis) return;
+                var wx = wepPan.x + ar.x;
+                var wy = wepPan.y + ar.y;
+                if (Input.mouse.x >= wx && Input.mouse.x < wx + 8 &&
+                    Input.mouse.y >= wy && Input.mouse.y < wy + 24 &&
+                    Input.mouse.pressed) {
+                    var inc = wi * 2 - 1;
+                    wepPan.sel = mid(0, wepPan.sel + inc, wepPan.smax);
+                    selectedWeapon = wepPan.sel;
+                    sfx('sel_opt', 0.4);
+                }
+            };
+            if (wi === 0) wepPan.prev_ar = ar; else wepPan.next_ar = ar;
+        })(wi);
+    }
+    
+    // --- START BUTTON ---
+    var startBut = mkSquareBut(lang.start || 'START', function() {
+        sfx('menu_in', 0.7);
+        ThroneMode.weaponsIndex = selectedWeapon;
+        ThroneMode.ranksIndex = selectedRank;
+        // Save preferences
+        if (!Save.data.prog.throne) Save.data.prog.throne = {};
+        Save.data.prog.throne.weapon_sel = selectedWeapon;
+        Save.data.prog.throne.rank_sel = selectedRank;
+        Save.save();
+        
+        // Slide panels out
+        var wt = 0;
+        for (var ei = 0; ei < elements.length; ei++) {
+            (function(e) {
+                wait(wt, function() {
+                    mv(e, 0, -MCH, 16);
+                    e.twcv = ease_in;
+                    wait(16, function() { kl(e); });
+                });
+            })(elements[ei]);
+            wt += 6;
+        }
+        
+        wait(wt + 8, function() {
+            fadeTo(-4, 30, function() {
+                closeMenu();
+                menuState = 'game';
+                setMode('throne');
+                mode.start();
+            });
+        });
+    });
+    startBut.x = bx - 32;
+    startBut.y = MCH;
+    startBut.dp = DP_TOP;
+    elements.push(startBut);
+    menuList.push(startBut);
+    
+    // --- BACK BUTTON ---
+    var backBut = mkSquareBut(lang.back || 'BACK', function() {
+        sfx('menu_out', 0.7);
+        // Slide panels out
+        var wt = 0;
+        for (var ei = 0; ei < elements.length; ei++) {
+            (function(e) {
+                wait(wt, function() {
+                    mv(e, 0, -MCH, 16);
+                    e.twcv = ease_in;
+                    wait(16, function() { kl(e); });
+                });
+            })(elements[ei]);
+            wt += 6;
+        }
+        wait(wt + 16, function() {
             closeMenu();
             menuState = 'title';
             initMenu();
+        });
+    });
+    backBut.x = bx - 32;
+    backBut.y = MCH;
+    backBut.dp = DP_TOP;
+    elements.push(backBut);
+    menuList.push(backBut);
+    
+    // --- KEYBOARD INPUT HANDLER ---
+    var input = mke(0, 0, 0);
+    input.dp = DP_TOP;
+    input.upd = function() {
+        // Weapon navigation
+        if (btnp('left')) {
+            if (selectedWeapon > 0) {
+                selectedWeapon--;
+                wepPan.sel = selectedWeapon;
+                sfx('sel_opt', 0.4);
+            }
+        }
+        if (btnp('right')) {
+            if (selectedWeapon < WEAPONS.length - 1) {
+                selectedWeapon++;
+                wepPan.sel = selectedWeapon;
+                sfx('sel_opt', 0.4);
+            }
+        }
+        // Rank navigation (up/down)
+        if (btnp('up')) {
+            if (selectedRank > 0) {
+                selectedRank--;
+                rankPan.sel = selectedRank;
+                sfx('sel_opt', 0.4);
+            }
+        }
+        if (btnp('down')) {
+            if (selectedRank < maxRank && selectedRank < RANKS.length - 1) {
+                selectedRank++;
+                rankPan.sel = selectedRank;
+                sfx('sel_opt', 0.4);
+            }
+        }
+        // Start
+        if (btnp('validate')) {
+            startBut.clicked = true;
+            startBut.action();
+        }
+        // Back
+        if (btnp('cancel')) {
+            backBut.clicked = true;
+            backBut.action();
         }
     };
+    menuList.push(input);
+    
+    // --- SLIDE IN ANIMATION ---
+    var cy = startY;
+    var wt = 0;
+    for (var ei = 0; ei < elements.length; ei++) {
+        var e = elements[ei];
+        e.y = cy + MCH;  // Start below screen
+        (function(ent, ty) {
+            wait(wt, function() {
+                mvt(ent, ent.x, ty, 16);
+                ent.twcv = ease_out;
+            });
+        })(e, cy);
+        wt += 6;
+        cy += e.ph + ec;
+    }
     
     mdr = drawMenu;
 }
 
-// === RANK SELECTION ===
-function initRankSelect() {
-    reset();
-    menuList = [];
-    selectedRank = ThroneMode.ranksIndex || 0;
-    var maxRank = Save.data.prog.throne ? (Save.data.prog.throne.rank || 0) : 0;
-    fadeTo(0, 20);
+// Square button factory (matches Android mk_square_but)
+function mkSquareBut(name, action) {
+    var e = mke();
+    e.pw = 64;
+    e.ph = BUTTON_HEIGHT;
+    e.name = name;
+    e.ov = false;
+    e.clicked = false;
+    e.action = action;
     
-    var bg = mke(0, 0, 0);
-    bg.dp = DP_BG;
-    bg.dr = function() {
-        rectfill(0, 0, MCW, MCH, 0);
-        
-        lprint(lang.choose_rank || 'Choose Your Rank', MCW / 2, 8, 7, 1);
-        lprint((lang.rank || 'Rank') + ': ' + (selectedRank + 1), MCW / 2, 24, 10, 1);
-        
-        var y = 40;
-        for (var i = 0; i <= selectedRank && i < RANKS.length; i++) {
-            var desc = describeRank(RANKS[i]);
-            var col = i === selectedRank ? 8 : 3;
-            lprint(desc, MCW / 2, y, col, 1);
-            y += 10;
+    e.upd = function() {
+        var ins = Input.mouse.x >= e.x && Input.mouse.x < e.x + e.pw &&
+                  Input.mouse.y >= e.y && Input.mouse.y < e.y + e.ph;
+        if (ins && !e.ov) {
+            e.ov = true;
+            sfx('sel_opt', 0.4);
         }
-        
-        for (var i = selectedRank + 1; i < RANKS.length && y < MCH - 20; i++) {
-            if (i > maxRank) {
-                lprint('???', MCW / 2, y, 5, 1);
-            } else {
-                lprint(describeRank(RANKS[i]), MCW / 2, y, 5, 1);
-            }
-            y += 10;
+        if (!ins && e.ov) {
+            e.ov = false;
+            e.clicked = false;
         }
-        
-        lprint('< ' + (lang.select || 'Select') + ' >', MCW / 2, MCH - 16, 7, 1);
-    };
-    
-    var input = mke(0, 0, 0);
-    input.dp = DP_TOP;
-    input.upd = function() {
-        if (btnp('left')) {
-            if (selectedRank > 0) {
-                selectedRank--;
-                sfx('sel_opt');
-            }
-        }
-        if (btnp('right')) {
-            if (selectedRank < maxRank && selectedRank < RANKS.length - 1) {
-                selectedRank++;
-                sfx('sel_opt');
-            }
-        }
-        if (btnp('validate')) {
-            sfx('start');
-            ThroneMode.ranksIndex = selectedRank;
-            closeMenu();
-            menuState = 'game';
-            setMode('throne');
-            mode.start();
-        }
-        if (btnp('cancel')) {
-            sfx('menu_out');
-            closeMenu();
-            menuState = 'weapon_select';
-            initWeaponSelect();
+        if (ins && Input.mouse.pressed) {
+            e.clicked = true;
+            e.action();
         }
     };
     
-    mdr = drawMenu;
+    e.dr = function(e, x, y) {
+        var labelc = 4;
+        spritesheet('title');
+        if (e.clicked) {
+            sspr(320, 180, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 180, 1, 12, x + 2, y, e.pw - 4, BUTTON_HEIGHT);
+            sspr(382, 180, 2, 12, x + e.pw - 2, y, 2, BUTTON_HEIGHT);
+            labelc = 1;
+        } else if (e.ov) {
+            sspr(320, 192, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 192, 1, 12, x + 2, y, e.pw - 4, BUTTON_HEIGHT);
+            sspr(382, 192, 2, 12, x + e.pw - 2, y, 2, BUTTON_HEIGHT);
+            labelc = 1;
+        } else {
+            sspr(320, 204, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 204, 1, 12, x + 2, y, e.pw - 4, BUTTON_HEIGHT);
+            sspr(382, 204, 2, 12, x + e.pw - 2, y, 2, BUTTON_HEIGHT);
+            labelc = 4;
+        }
+        spritesheet('gfx');
+        
+        // Button text - centered
+        var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
+        lprint(e.name, x + e.pw / 2, txty, labelc, 1);
+    };
+    
+    return e;
 }
 
 function describeRank(r) {
@@ -719,26 +1015,26 @@ function drawMenu() {
     
     // Draw entities by depth
     var layers = [];
-    for (var i = 0; i < 16; i++) layers.push([]);
+    for (var di = 0; di < 16; di++) layers.push([]);
     
-    for (var e of Entity.entities) {
-        if (e.dead) continue;
-        var dp = Math.max(0, Math.min(15, e.dp || 0));
-        layers[dp].push(e);
+    for (var ei = 0; ei < Entity.entities.length; ei++) {
+        var ent = Entity.entities[ei];
+        if (ent.dead) continue;
+        var dp = Math.max(0, Math.min(15, ent.dp || 0));
+        layers[dp].push(ent);
     }
     
-    for (var layer of layers) {
-        for (var e of layer) {
-            dre(e);
+    for (var li = 0; li < layers.length; li++) {
+        var layer = layers[li];
+        for (var ej = 0; ej < layer.length; ej++) {
+            dre(layer[ej]);
         }
     }
     
     camera();
     Sugar.updateFade();
     Sugar.drawFade();
-}
-
-// === PAUSE ===
+}// === PAUSE ===
 function pauseGame() {
     if (!ingame || !playing) return;
     pause = true;
