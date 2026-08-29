@@ -1,37 +1,53 @@
 // Menu System - title screen, weapon/rank select, options
 // Ported from code/menu.lua
 
-let menuState = 'title'; // title, weapon_select, rank_select, options, game
-let menuButtons = [];
+const BUTTON_HEIGHT = 12;
+
+let menuState = 'title';
+let menuList = [];      // current menu entities (like Lua's 'menu' table)
 let selectedWeapon = 0;
 let selectedRank = 0;
-let titleAnimT = 0;
+let skipIntro = false;
+let titleEntity = null;
+let menuSelIndex = -1;
 
+// === TITLE SCREEN ===
 function initMenu(gotoPlay) {
     reset();
     menuState = 'title';
-    titleAnimT = 0;
+    menuList = [];
+    menuSelIndex = -1;
+    
+    const intro = !skipIntro;
+    skipIntro = true;
+    
+    const tempo = intro ? 60 : 30;
     
     music('title_A');
-    fadeTo(0, 30);
+    fd = -3;
+    fadeTo(0, 24);
     
-    // Background entity
+    // Background
     const bg = mke(0, 0, 0);
     bg.dp = DP_BG;
+    bg.upd = function() {
+        if (intro && bg.t > 240 && (Input.mouse.pressed || btnp('validate'))) {
+            sfx('start', 0.75);
+            wait(5, () => openMenu());
+        }
+    };
     bg.dr = function(e, x, y) {
-        // Draw title background
         spritesheet('title');
         sspr(0, 0, MCW, MCH, x, y);
         spritesheet('gfx');
         
-        // Version text
-        const sav = font();
+        var sav = font();
         font('pico');
-        lprint('v' + (Save.data.version || '1.515g'), 1, 1, 2);
+        lprint('PUNKCAKE#9 v1.515g', 1, 1, 2);
         font(sav);
     };
     
-    // Castle entity
+    // CASTLE - slides up from below
     const castle = mke(0, 0, 17 + MCH / 2);
     castle.dp = DP_BG + 1;
     castle.dr = function(e, x, y) {
@@ -39,9 +55,29 @@ function initMenu(gotoPlay) {
         sspr(0, 189, 307, 163, x, y);
         spritesheet('gfx');
     };
-    mvt(castle, 0, 17, 30);
+    mvt(castle, 0, 17, tempo);
+    castle.twcv = ease_in_out;
     
-    // Pieces entity
+    // TREES - slides up from below
+    const trees = mke(0, 0, 73 + MCH);
+    trees.dp = DP_BG + 1;
+    trees.dr = function(e, x, y) {
+        spritesheet('title');
+        sspr(463, 216, 49, 29, x, y + 78);
+        sspr(307, 245, 205, 107, x + 115, y);
+        spritesheet('gfx');
+        
+        if (bg.t > 240 && intro && _t % 60 < 40) {
+            var txt = lang.click_start || lang.press_start || 'Click to Start';
+            var w = txtwidth(txt);
+            rectfill(244 - w / 2 - 3, 116 - 2, 244 + w / 2 + 3, 116 + 6, 1);
+            lprint(txt, 244, 116, 5, 1);
+        }
+    };
+    mvt(trees, 0, 73, tempo + 10);
+    trees.twcv = ease_in_out;
+    
+    // PIECES - slides up from below
     const pieces = mke(0, 0, 114 + MCH * 2);
     pieces.dp = DP_BG + 2;
     pieces.dr = function(e, x, y) {
@@ -49,98 +85,282 @@ function initMenu(gotoPlay) {
         sspr(320, 114, 192, 66, x, y);
         spritesheet('gfx');
     };
-    mvt(pieces, 0, 114, 45);
+    mvt(pieces, 0, 114, tempo + 15);
+    pieces.twcv = ease_in_out;
     
-    // Press start text
-    const pst = mke(0, 0, 0);
-    pst.dp = DP_TOP;
-    pst.dr = function(e, x, y) {
-        if (titleAnimT > 120 && Math.floor(titleAnimT / 60) % 2 === 0) {
-            const txt = lang.click_start || lang.press_start || 'Click to Start';
-            const w = txtwidth(txt);
-            rectfill(MCW / 2 - w / 2 - 3, 116 - 2, MCW / 2 + w / 2 + 3, 116 + 6, 1);
-            lprint(txt, MCW / 2, 116, 5, 1);
+    // TITLE - piece by piece animation
+    titleEntity = mke();
+    titleEntity.dp = DP_TOP;
+    
+    var boxes = [
+        [320, 0, 142, 28], [320, 31, 142, 52],
+        [324, 84, 7, 12], [331, 84, 10, 12], [340, 84, 7, 12],
+        [350, 84, 6, 12], [356, 84, 4, 12], [359, 84, 9, 12],
+        [367, 84, 9, 12], [376, 84, 8, 12],
+        [386, 84, 8, 12], [394, 84, 10, 12], [403, 84, 8, 12],
+        [411, 84, 7, 12], [418, 84, 8, 12], [426, 84, 10, 12],
+        [436, 84, 9, 12], [445, 84, 6, 12], [451, 84, 7, 12],
+    ];
+    
+    var bi = 0;
+    var prev = null;
+    
+    function spawnTitle() {
+        if (bi >= boxes.length) return;
+        
+        var b = boxes[bi];
+        var mult = intro ? 1 : 0;
+        
+        var tx = (b[0] - 320) + 173;
+        var ty = b[1] + 7;
+        var e = mke(0, tx, MCH);
+        add_child(titleEntity, e);
+        e.bi = bi + 1;
+        bi++;
+        
+        e.dr = function(e, x, y) {
+            if (e.c_shake) {
+                y = y + e.c_shake * (Math.sin(_t * 0.8) * 2 - 1);
+                e.c_shake = Math.max(0, e.c_shake - 0.3);
+            }
+            spritesheet('title');
+            sspr(b[0], b[1], b[2], b[3], x, y - 5);
+            spritesheet('gfx');
+        };
+        
+        var p = prev;
+        function beep() {
+            if (!intro) return;
+            if (e.bi <= 2) {
+                sfx('shoot');
+            } else {
+                sfx('spawn');
+            }
+            if (p) {
+                p.c_shake = e.bi <= 2 ? 8 : 3;
+            }
         }
-    };
-    pst.upd = function(e) {
-        titleAnimT++;
-        if (titleAnimT > 120 && (Input.mouse.pressed || btnp('validate'))) {
-            sfx('start', 0.75);
-            openMenu(['play', 'options', 'quit']);
-        }
-    };
+        
+        mvt(e, tx, ty, 30 * mult);
+        e.twcv = ease_bounce_out;
+        wait(15, beep);
+        wait((e.bi <= 2 ? 30 : 6) * mult, spawnTitle);
+        
+        prev = e;
+    }
+    
+    wait(tempo, spawnTitle);
+    
+    if (!intro) {
+        wait(tempo, function() { openMenu(); });
+    }
     
     mdr = drawMenu;
 }
 
-function openMenu(actions) {
+// === OPEN MENU ===
+function openMenu(a, type) {
     closeMenu();
-    menuButtons = [];
+    menuList = [];
+    menuSelIndex = -1;
     
-    const ma = 8;
-    const ecy = 14;
-    const pw = 80;
-    const ph = 2 * ma + actions.length * ecy - 2;
-    let px = MCW / 2 - pw / 2;
-    let py = MCH / 2 - ph / 2;
-    
-    for (let i = 0; i < actions.length; i++) {
-        const action = actions[i];
-        const y = py + ma + i * ecy;
-        const but = mkMenuBut(action, px, y, pw, ecy - 2);
-        but.action = action;
-        menuButtons.push(but);
+    if (!a) {
+        a = ['play', 'options', 'quit'];
     }
+    
+    var ma = 8;
+    var ecy = BUTTON_HEIGHT;
+    var pw = 64;
+    var ph = 2 * ma + a.length * ecy - 2;
+    var px = 212;
+    var py = 108;
+    
+    var dk = py + ph - (MCH - 4);
+    if (dk > 0) py = py - dk / 2;
+    
+    // ERASER - clears area behind menu
+    var eraser = mke();
+    eraser.dp = DP_TOP;
+    eraser.perm = true;
+    eraser.dr = function() {};
+    menuList.push(eraser);
+    
+    // BUTTONS
+    for (var i = 0; i < a.length; i++) {
+        var name = a[i];
+        var by = py + ma + i * ecy - 2;
+        var m = mkMenuBut(name, px, by, pw, ecy - 2);
+        m.menuIndex = i;
+        menuList.push(m);
+        
+        // Slide in animation - alternating left/right
+        var s = (i % 2) * 2 - 1;
+        m.x = m.x + s * 16;
+        mv(m, -s * 16, 0, 16);
+        m.twcv = ease_out;
+    }
+    
+    // Input handler for keyboard navigation
+    var nav = mke(0, 0, 0);
+    nav.dp = DP_TOP;
+    nav.perm = true;
+    nav.upd = function() {
+        if (btnp('down')) {
+            menuSelIndex = Math.min(menuSelIndex + 1, a.length - 1);
+            sfx('sel_opt', 0.4);
+        }
+        if (btnp('up')) {
+            menuSelIndex = Math.max(menuSelIndex - 1, 0);
+            sfx('sel_opt', 0.4);
+        }
+        if (menuSelIndex >= 0 && menuSelIndex < a.length && btnp('validate')) {
+            var btn = menuList[menuSelIndex + 1]; // +1 for eraser offset
+            if (btn && !btn.lock) {
+                btn.clicked = true;
+                actMenu(btn.id);
+            }
+        }
+        if (btnp('cancel')) {
+            // Go back to title
+            actMenu('back');
+        }
+    };
+    menuList.push(nav);
 }
 
-function mkMenuBut(label, x, y, w, h) {
-    const e = mke(0, x, y);
-    e.label = label;
+// === MENU BUTTON ===
+function mkMenuBut(id, x, y, w, h) {
+    var lock = isLocked(id);
+    var first = menuList.length === 1;
+    
+    var e = mke(0, x, y);
+    e.id = id;
+    e.name = lang[id] || id;
+    e.lock = lock;
+    e.perm = true;
+    e.dp = DP_TOP;
     e.pw = w;
     e.ph = h;
-    e.dp = DP_TOP;
     e.ov = false;
-    e.t = 0;
+    e.clicked = false;
+    e.inside = false;
     
-    e.dr = function(e, bx, by) {
-        const hover = Input.mouseInRect(bx, by, e.pw, e.ph) || e.ov;
-        const bgc = hover ? 5 : 1;
-        const txc = hover ? 0 : 7;
+    // Click handler
+    e.upd = function() {
+        var ins = Input.mouse.x >= e.x && Input.mouse.x < e.x + w &&
+                  Input.mouse.y >= e.y && Input.mouse.y < e.y + h;
         
-        rectfill(bx, by, bx + e.pw, by + e.ph, bgc);
-        rect(bx, by, bx + e.pw, by + e.ph, 7);
+        // Keyboard selection highlight
+        if (e.menuIndex !== undefined && e.menuIndex === menuSelIndex) {
+            e.ov = true;
+        }
         
-        const label = lang[e.label] || e.label;
-        lprint(label, bx + e.pw / 2, by + 2, txc, 1);
+        if (e.inside && !ins && (e.menuIndex === undefined || e.menuIndex !== menuSelIndex)) {
+            e.ov = false;
+            e.clicked = false;
+        }
+        if (!e.inside && ins) {
+            e.ov = true;
+            if (e.menuIndex !== undefined) menuSelIndex = e.menuIndex;
+            sfx('sel_opt', 0.4);
+        }
+        e.inside = ins;
         
-        if (hover) {
-            // Arrow indicator
-            lprint('>', bx - 6, by + 2, 8);
-            lprint('<', bx + e.pw + 2, by + 2, 8);
+        if (ins && Input.mouse.pressed && !e.lock) {
+            e.clicked = true;
+            actMenu(e.id);
         }
     };
     
-    e.upd = function(e) {
-        e.t++;
-        const hover = Input.mouseInRect(e.x, e.y, e.pw, e.ph);
-        e.ov = hover;
+    // 9-slice sprite button rendering
+    e.dr = function(e, x, y) {
+        e.name = lang[e.id] || e.name || e.id;
+        var name = e.red ? (e.name + '?') : e.name;
         
-        if (e.t > 5 && hover && Input.mouse.pressed) {
-            handleMenuAction(e.action);
+        spritesheet('title');
+        
+        var labelc = 4;
+        var valc = 4;
+        
+        if (e.lock) {
+            // Locked
+            sspr(320, 216, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 216, 1, 12, x + 2, y, w - 4, BUTTON_HEIGHT);
+            sspr(382, 216, 2, 12, x + w - 2, y, 2, BUTTON_HEIGHT);
+            labelc = 1;
+            valc = 1;
+            if (e.ov) labelc = 3;
+        } else if (e.ov && e.clicked) {
+            // Clicked
+            sspr(320, 180, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 180, 1, 12, x + 2, y, w - 4, BUTTON_HEIGHT);
+            sspr(382, 180, 2, 12, x + w - 2, y, 2, BUTTON_HEIGHT);
+            labelc = 1;
+        } else if (e.ov) {
+            // Hover
+            sspr(320, 192, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 192, 1, 12, x + 2, y, w - 4, BUTTON_HEIGHT);
+            sspr(382, 192, 2, 12, x + w - 2, y, 2, BUTTON_HEIGHT);
+            labelc = 1;
+            valc = 5;
+        } else {
+            // Normal
+            sspr(320, 204, 2, 12, x, y, 2, BUTTON_HEIGHT);
+            sspr(322, 204, 1, 12, x + 2, y, w - 4, BUTTON_HEIGHT);
+            sspr(382, 204, 2, 12, x + w - 2, y, 2, BUTTON_HEIGHT);
+            labelc = e.labelc || 4;
+            valc = 4;
         }
-        if (e.t > 5 && hover && btnp('validate')) {
-            handleMenuAction(e.action);
+        spritesheet('gfx');
+        
+        var pico = e.pico;
+        var fntsav;
+        if (pico) {
+            fntsav = font();
+            font('pico');
+        }
+        
+        // NAME - centered
+        var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
+        if (e.align_left) {
+            lprint(name, x + 4, txty, labelc);
+        } else {
+            lprint(name, x + w / 2, txty, labelc, 1);
+        }
+        
+        // VALUE (for options)
+        if (e.val) {
+            lprint(e.val, x + w - 4, txty, valc, 2);
+        }
+        
+        // SLIDER
+        if (e.slider !== undefined) {
+            for (var i = 0; i < 10; i++) {
+                var sx = x + w + i * 2 - 10 * 2 - 4;
+                var sy = y + BUTTON_HEIGHT * 0.5;
+                line(sx, sy - 3, sx, sy + 1, i < e.slider ? valc : 1);
+            }
+        }
+        
+        if (pico && fntsav !== 'pico') {
+            font(fntsav);
         }
     };
     
     return e;
 }
 
-function handleMenuAction(action) {
-    if (!action) return;
-    sfx('sel_opt');
+// Check if a menu item is locked
+function isLocked(id) {
+    // No locked items in web version
+    return false;
+}
+
+// === MENU ACTION ===
+function actMenu(id) {
+    sfx('menu_in');
     
-    switch (action) {
+    switch (id) {
         case 'play':
             closeMenu();
             menuState = 'weapon_select';
@@ -158,7 +378,7 @@ function handleMenuAction(action) {
         case 'back':
             closeMenu();
             menuState = 'title';
-            openMenu(['play', 'options', 'quit']);
+            initMenu();
             break;
         case 'reset_save':
             Save.reset();
@@ -177,10 +397,10 @@ function handleMenuAction(action) {
 }
 
 function closeMenu() {
-    for (const b of menuButtons) {
-        kl(b);
+    for (var i = 0; i < menuList.length; i++) {
+        kl(menuList[i]);
     }
-    menuButtons = [];
+    menuList = [];
 }
 
 // === WEAPON SELECTION ===
@@ -188,50 +408,43 @@ function initWeaponSelect() {
     selectedWeapon = ThroneMode.weaponsIndex || 0;
     fadeTo(0, 20);
     
-    const bg = mke(0, 0, 0);
+    var bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
         rectfill(0, 0, MCW, MCH, 0);
         
-        // Title
         lprint(lang.choose_weapon || 'Choose Your Weapon', MCW / 2, 8, 7, 1);
         
-        // Weapon display
-        const w = WEAPONS[selectedWeapon];
+        var w = WEAPONS[selectedWeapon];
         if (w) {
-            // Weapon name
             lprint(w.name, MCW / 2, 24, 10, 1);
             
-            // Stats
-            let y = 40;
-            const stats = [
+            var y = 40;
+            var stats = [
                 { name: lang.power || 'Power', val: w.firepower },
                 { name: lang.range || 'Range', val: w.firerange },
                 { name: lang.chamber || 'Chamber', val: w.chamber_max },
                 { name: lang.ammo || 'Ammo', val: w.ammo_max },
-                { name: lang.spread || 'Spread', val: w.spread + (lang.degree_symbol || '°') },
+                { name: lang.spread || 'Spread', val: w.spread + '\u00b0' },
             ];
             if (w.knockback) stats.push({ name: lang.knock || 'Knock', val: w.knockback + '%' });
             if (w.pierce) stats.push({ name: lang.pierc || 'Pierce', val: w.pierce + '%' });
             if (w.blade) stats.push({ name: lang.blade || 'Blade', val: w.blade });
             if (w.search) stats.push({ name: lang.search || 'Search', val: w.search });
             
-            for (const s of stats) {
-                lprint(s.name + ':', MCW / 2 - 40, y, 3);
-                lprint(String(s.val), MCW / 2 + 40, y, 5, 2);
+            for (var i = 0; i < stats.length; i++) {
+                var s = stats[i];
+                lprint(s.name + ':', 60, y, 3);
+                lprint(String(s.val), 260, y, 5, 2);
                 y += 10;
             }
         }
         
-        // Instructions
         lprint('< ' + (lang.select || 'Select') + ' >', MCW / 2, MCH - 16, 7, 1);
-        if (selectedWeapon === 0) {
-            lprint(lang.press_enter || 'Press Enter', MCW / 2, MCH - 8, 5, 1);
-        }
+        lprint(lang.press_enter || 'Press Enter', MCW / 2, MCH - 8, 5, 1);
     };
     
-    // Input handler
-    const input = mke(0, 0, 0);
+    var input = mke(0, 0, 0);
     input.dp = DP_TOP;
     input.upd = function() {
         if (btnp('left')) {
@@ -263,49 +476,38 @@ function initWeaponSelect() {
 // === RANK SELECTION ===
 function initRankSelect() {
     selectedRank = ThroneMode.ranksIndex || 0;
-    const maxRank = Save.data.prog.throne ? (Save.data.prog.throne.rank || 0) : 0;
+    var maxRank = Save.data.prog.throne ? (Save.data.prog.throne.rank || 0) : 0;
     fadeTo(0, 20);
     
-    const bg = mke(0, 0, 0);
+    var bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
         rectfill(0, 0, MCW, MCH, 0);
         
-        // Title
         lprint(lang.choose_rank || 'Choose Your Rank', MCW / 2, 8, 7, 1);
+        lprint((lang.rank || 'Rank') + ': ' + (selectedRank + 1), MCW / 2, 24, 10, 1);
         
-        // Rank display
-        lprint(lang.rank || 'Rank' + ': ' + (selectedRank + 1), MCW / 2, 24, 10, 1);
-        
-        // Rank effects
-        let y = 40;
-        for (let i = 0; i <= selectedRank && i < RANKS.length; i++) {
-            const r = RANKS[i];
-            const desc = describeRank(r);
-            const col = i === selectedRank ? 8 : 3;
+        var y = 40;
+        for (var i = 0; i <= selectedRank && i < RANKS.length; i++) {
+            var desc = describeRank(RANKS[i]);
+            var col = i === selectedRank ? 8 : 3;
             lprint(desc, MCW / 2, y, col, 1);
             y += 10;
         }
         
-        // Show locked ranks
-        for (let i = selectedRank + 1; i < RANKS.length && y < MCH - 20; i++) {
+        for (var i = selectedRank + 1; i < RANKS.length && y < MCH - 20; i++) {
             if (i > maxRank) {
                 lprint('???', MCW / 2, y, 5, 1);
-                y += 10;
             } else {
-                const r = RANKS[i];
-                const desc = describeRank(r);
-                lprint(desc, MCW / 2, y, 5, 1);
-                y += 10;
+                lprint(describeRank(RANKS[i]), MCW / 2, y, 5, 1);
             }
+            y += 10;
         }
         
-        // Instructions
         lprint('< ' + (lang.select || 'Select') + ' >', MCW / 2, MCH - 16, 7, 1);
     };
     
-    // Input handler
-    const input = mke(0, 0, 0);
+    var input = mke(0, 0, 0);
     input.dp = DP_TOP;
     input.upd = function() {
         if (btnp('left')) {
@@ -325,7 +527,6 @@ function initRankSelect() {
             ThroneMode.ranksIndex = selectedRank;
             closeMenu();
             menuState = 'game';
-            // Start the game!
             setMode('throne');
             mode.start();
         }
@@ -358,74 +559,118 @@ function describeRank(r) {
 function initOptions() {
     fadeTo(0, 20);
     
-    const opts = ['music', 'sfx', 'shields', 'show_danger', 'scrshake', 'scrflash', 'lang', 'back'];
-    let selIndex = 0;
+    var opts = ['music', 'sfx', 'shields', 'show_danger', 'scrshake', 'scrflash', 'lang', 'back'];
+    var selIndex = 0;
     
-    const bg = mke(0, 0, 0);
-    bg.dp = DP_BG;
-    bg.dr = function() {
-        rectfill(0, 0, MCW, MCH, 0);
-        lprint(lang.options || 'Options', MCW / 2, 8, 7, 1);
+    var ma = 8;
+    var ecy = BUTTON_HEIGHT;
+    var pw = 64;
+    var ph = 2 * ma + opts.length * ecy - 2;
+    var px = 212;
+    var py = MCH / 2 - ph / 2;
+    
+    var dk = py + ph - (MCH - 4);
+    if (dk > 0) py = py - dk / 2;
+    
+    // Eraser
+    var eraser = mke();
+    eraser.dp = DP_TOP;
+    eraser.perm = true;
+    menuList.push(eraser);
+    
+    for (var i = 0; i < opts.length; i++) {
+        var id = opts[i];
+        var by = py + ma + i * ecy - 2;
+        var m = mkMenuBut(id, px, by, pw, ecy - 2);
+        m.align_left = true;
         
-        let y = 24;
-        for (let i = 0; i < opts.length; i++) {
-            const opt = opts[i];
-            const val = Save.getOpt(opt);
-            const col = i === selIndex ? 8 : 3;
-            
-            lprint(opt + ':', 40, y, col);
-            lprint(String(val), 120, y, 5);
-            y += 12;
+        // Set up option value display
+        var o = OPTIONS[id];
+        if (o) {
+            if (o.opt === 11 && id !== 'lang') {
+                // Slider
+                m.slider = SET[o.nid];
+                m.upn = function() { m.slider = SET[o.nid]; };
+            } else {
+                // Value display
+                m.upn = function() {
+                    var k = SET[o.nid];
+                    if (id === 'lang') {
+                        k = lang.lang_endonym || 'English';
+                    } else if (o.labels) {
+                        k = o.labels[k + 1];
+                    } else if (o.opt === 2) {
+                        k = k === 0 ? (lang.off || 'OFF') : (lang.on || 'ON');
+                    }
+                    m.val = (k || '') + '';
+                };
+            }
+            m.upn();
         }
         
-        // Instructions
-        lprint(lang.up_down_select || 'Up/Down to select, Left/Right to change', MCW / 2, MCH - 8, 5, 1);
-    };
+        menuList.push(m);
+        
+        // Slide in animation
+        var s = (i % 2) * 2 - 1;
+        m.x = m.x + s * 16;
+        mv(m, -s * 16, 0, 16);
+        m.twcv = ease_out;
+    }
     
-    const input = mke(0, 0, 0);
+    // Input handler for options
+    var input = mke(0, 0, 0);
     input.dp = DP_TOP;
+    input.perm = true;
     input.upd = function() {
-        if (btnp('up')) {
-            selIndex = (selIndex - 1 + opts.length) % opts.length;
-            sfx('sel_opt');
-        }
         if (btnp('down')) {
             selIndex = (selIndex + 1) % opts.length;
-            sfx('sel_opt');
+            sfx('sel_opt', 0.4);
+        }
+        if (btnp('up')) {
+            selIndex = (selIndex - 1 + opts.length) % opts.length;
+            sfx('sel_opt', 0.4);
         }
         if (btnp('left') || btnp('right')) {
-            const opt = opts[selIndex];
-            if (opt === 'back') return;
-            const dir = btnp('right') ? 1 : -1;
-            const o = OPTIONS[opt];
+            var id = opts[selIndex];
+            if (id === 'back') return;
+            var o = OPTIONS[id];
             if (o) {
-                let val = Save.getOpt(opt);
-                val = mid(0, val + dir, o.opt);
-                Save.setOpt(opt, val);
-                sfx('sel_opt');
-                applyOption(opt);
+                var dir = btnp('right') ? 1 : -1;
+                var val = SET[o.nid] || 0;
+                val = (val + dir + o.opt) % o.opt;
+                SET[o.nid] = val;
+                sfx('tic', 0.5);
+                applyOption(id);
+                // Update button display
+                for (var j = 0; j < menuList.length; j++) {
+                    if (menuList[j].id === id && menuList[j].upn) {
+                        menuList[j].upn();
+                    }
+                }
             }
         }
         if (btnp('validate') || btnp('cancel')) {
-            const opt = opts[selIndex];
-            if (opt === 'back' || btnp('cancel')) {
+            var id = opts[selIndex];
+            if (id === 'back' || btnp('cancel')) {
                 sfx('menu_out');
+                Save.save();
                 closeMenu();
                 menuState = 'title';
                 initMenu();
             }
         }
     };
+    menuList.push(input);
     
     mdr = drawMenu;
 }
 
 // === SAVE EXPORT/IMPORT ===
 function exportSaveData() {
-    const json = Save.exportJSON();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    var json = Save.exportJSON();
+    var blob = new Blob([json], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
     a.href = url;
     a.download = 'shotgun_king_save.json';
     a.click();
@@ -434,15 +679,15 @@ function exportSaveData() {
 }
 
 function importSaveData() {
-    const input = document.createElement('input');
+    var input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
     input.onchange = function(e) {
-        const file = e.target.files[0];
+        var file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
+        var reader = new FileReader();
         reader.onload = function(ev) {
-            const json = ev.target.result;
+            var json = ev.target.result;
             if (Save.importJSON(json)) {
                 sfx('alleluia');
                 DEN.init();
@@ -463,7 +708,7 @@ function drawMenu() {
     camera();
     
     // Screen shake
-    let shY = 0, shX = 0;
+    var shX = 0, shY = 0;
     if (screenShake > 0) {
         shX = (Math.random() * 2 - 1) * screenShake;
         shY = (Math.random() * 2 - 1) * screenShake;
@@ -472,24 +717,22 @@ function drawMenu() {
     camera(shX, shY);
     
     // Draw entities by depth
-    const layers = [];
-    for (let i = 0; i < 16; i++) layers.push([]);
+    var layers = [];
+    for (var i = 0; i < 16; i++) layers.push([]);
     
-    for (const e of Entity.entities) {
+    for (var e of Entity.entities) {
         if (e.dead) continue;
-        const dp = Math.max(0, Math.min(15, e.dp || 0));
+        var dp = Math.max(0, Math.min(15, e.dp || 0));
         layers[dp].push(e);
     }
     
-    for (const layer of layers) {
-        for (const e of layer) {
+    for (var layer of layers) {
+        for (var e of layer) {
             dre(e);
         }
     }
     
     camera();
-    
-    // Fade
     Sugar.updateFade();
     Sugar.drawFade();
 }
@@ -501,7 +744,7 @@ function pauseGame() {
     timerun = false;
     sfx('pause');
     
-    const bg = mke(0, 0, 0);
+    var bg = mke(0, 0, 0);
     bg.dp = DP_TOP;
     bg.perm = true;
     bg.dr = function() {
@@ -517,6 +760,7 @@ function unpause() {
     pause = false;
     timerun = true;
     closeMenu();
-    // Remove pause overlay
-    Entity.entities = Entity.entities.filter(e => !e.perm || e === inter || e === bg || e === board);
+    Entity.entities = Entity.entities.filter(function(e) {
+        return !e.perm || e === inter || e === bg || e === board;
+    });
 }

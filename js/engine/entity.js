@@ -66,9 +66,14 @@ const Entity = {
     },
     
     // Draw entity (recursive)
-    dre(e, bx, by) {
+    // Children are updated in the global list but drawn through their parent.
+    dre(e, bx, by, isChild) {
         if (!e || e.dead) return;
         if (!e.visible) return;
+        
+        // Skip entities that have a parent when called from drawAll.
+        // They will be drawn recursively through their parent instead.
+        if (e.parent && !isChild) return;
         
         const x = (bx || 0) + e.x;
         const y = (by || 0) + e.y;
@@ -89,9 +94,9 @@ const Entity = {
             e.dr(e, x, y);
         }
         
-        // Draw children
+        // Draw children recursively, marking them as child draws
         for (const c of e.children) {
-            this.dre(c, x, y);
+            this.dre(c, x, y, true);
         }
     },
     
@@ -260,7 +265,7 @@ const Entity = {
 // Global function aliases
 function mke(fr, x, y) { return Entity.mke(fr, x, y); }
 function kl(e) { Entity.kl(e); }
-function dre(e, bx, by) { Entity.dre(e, bx, by); }
+function dre(e, bx, by, isChild) { Entity.dre(e, bx, by, isChild); }
 function exe(fn, ...args) { return Entity.exe(fn, ...args); }
 function wait(delay, fn, ...args) { Entity.wait(delay, fn, ...args); }
 function loop(fn, duration) { return Entity.loop(fn, duration); }
@@ -275,3 +280,31 @@ function mv(e, dx, dy, t) {
     e.moveTotal = t;
     e.moveCb = null;
 }
+
+// Add child entity to parent
+function add_child(par, e) {
+    if (e.parent) {
+        const idx = e.parent.children.indexOf(e);
+        if (idx >= 0) e.parent.children.splice(idx, 1);
+    }
+    e.parent = par;
+    if (!par.children) par.children = [];
+    par.children.push(e);
+    // Also add to global entity list if not already there
+    if (!Entity.entities.includes(e)) {
+        Entity.entities.push(e);
+    }
+}
+
+// Easing functions
+function ease_bounce_out(t) {
+    const n1 = 7.5625, d1 = 2.75;
+    if (t < 1/d1) return n1*t*t;
+    if (t < 2/d1) { t -= 1.5/d1; return n1*t*t + 0.75; }
+    if (t < 2.5/d1) { t -= 2.25/d1; return n1*t*t + 0.9375; }
+    t -= 2.625/d1;
+    return n1*t*t + 0.984375;
+}
+function ease_in_out(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+function ease_out(t) { return 1 - (1-t)*(1-t); }
+function ease_in(t) { return t*t; }
