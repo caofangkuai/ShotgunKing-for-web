@@ -554,10 +554,7 @@ function getPlacementPositions(type, index) {
 // === TURN SYSTEM ===
 function initNewTurn() {
     if (hero.detected) return;
-    
-    // Increment turn
-    mode.turns = (mode.turns || 0) + 1;
-    
+
     newTurn();
 }
 
@@ -624,19 +621,22 @@ function newTurn() {
 
 function play() {
     if (hero.dead) return;
-    
+
+    // Increment turn counter at start of player turn
+    mode.turns = (mode.turns || 0) + 1;
+
     // Process events
     if (eventQueue.length > 0) {
         const ev = eventQueue.shift();
         if (ev.fn) ev.fn();
         return;
     }
-    
+
     // Clear marks
     for (const e of bads) e.mark = {};
-    
-    // Check win
-    if (hero.win || (boss && boss.hp <= 0)) {
+
+    // Check boss death
+    if (boss && boss.hp <= 0) {
         wait(2, oppTurn);
         return;
     }
@@ -953,13 +953,9 @@ function onDeath(e) {
     // Leave square
     leaveSq(e);
 
-    // Check level end - defer to avoid state inconsistency
+    // Check level end - set win flag for king death
     if (e.type === 5 || e.type === 8) {
-        // King died - trigger win sequence
         hero.win = true;
-        wait(10, function() {
-            checkLevelEnd();
-        });
     }
 }
 
@@ -1028,21 +1024,30 @@ function gotoFall(e, di) {
 
 // === OPPONENT TURN ===
 function oppTurn() {
+    // If hero has won, trigger level end sequence
+    if (hero.win) {
+        endLevel(function() {
+            if (mode.grow) mode.grow();
+            else if (mode.nextFloor) mode.nextFloor();
+        });
+        return;
+    }
+
     // Clean up dead bullets
     bullets = bullets.filter(b => !b.dead);
-    
+
     // Wait for bullets
     if (bullets.length > 0 || curtsy > 0) {
         wait(4, oppTurn);
         return;
     }
-    
+
     // Check end game
     if (boss && boss.hp <= 0) {
         xplBoss();
         return;
     }
-    
+
     // Get all bad pieces that can act
     oppMove();
 }
