@@ -289,8 +289,6 @@ function _update() {
         }
     }
     
-    // Check orientation
-    Sugar.checkOrientation();
 }
 
 function _draw() {

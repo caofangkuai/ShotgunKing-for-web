@@ -1524,10 +1524,10 @@ function drawUI() {
     // Chamber (above board, starting from boardX)
     const chmax = Math.max(stack.chamber_max || 0, chamber);
     for (let i = 0; i < chmax; i++) {
-        const y = boardY - 10;
+        const y = boardY - 18;
         sspr(i < chamber ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
     }
-    
+
     // Shotgun sprite (right of chamber)
     spritesheet('weapons');
     let wfr = 96;
@@ -1536,21 +1536,21 @@ function drawUI() {
         wfy = (mode.weaponsIndex + 1) * 16;
     }
     if (inter && inter.cReload) wfr = 120;
-    sspr(wfr, wfy, 24, 16, boardX + chmax * 4 + 2, boardY - 20);
-    
+    sspr(wfr, wfy, 24, 16, boardX + chmax * 4 + 2, boardY - 18);
+
     spritesheet('gfx');
-    
+
     // Ammo display (below chamber, above board)
     const ram = ammo - waitAmmo;
     for (let i = 0; i < (stack.ammo_max || 0); i++) {
-        const y = boardY - 3;
+        const y = boardY - 10;
         sspr(i < ram ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
     }
-    
-    // Shields (right of ammo)
+
+    // Shields (right of ammo, on same row)
     const shieldsMax = SET.get('shields');
     for (let i = 0; i < shieldsMax; i++) {
-        sspr(i < shields ? 32 : 38, 64, 6, 7, boardX + (stack.ammo_max || 0) * 4 + i * 6 + 1, boardY - 3);
+        sspr(i < shields ? 32 : 38, 64, 6, 7, boardX + (stack.ammo_max || 0) * 4 + i * 6 + 4, boardY - 10);
     }
     
     // Card display (both sides of board)

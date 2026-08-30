@@ -68,9 +68,9 @@ function initMenu(gotoPlay) {
         
         if (bg.t > 240 && intro && _t % 60 < 40) {
             var txt = lang.click_start || lang.press_start || 'Click to Start';
-            var w = txtwidth(txt);
+            var w = txtwidthSmall(txt, 8);
             rectfill(244 - w / 2 - 3, 116 - 2, 244 + w / 2 + 3, 116 + 6, 1);
-            lprint(txt, 244, 116, 5, 1);
+            smallPrint(txt, 244, 116, 5, 1);
         }
     };
     mvt(trees, 0, 73, tempo + 10);
@@ -457,7 +457,7 @@ function initWeaponSelect() {
         }
         
         // Title
-        lprint(lang.rank || 'Rank', px + rpw / 2, py + 3, 3, 1);
+        smallPrint(lang.rank || 'Rank', px + rpw / 2, py + 3, 3, 1);
         
         // Rank number (large sprite-style)
         var s = (e.sel + 1) + '';
@@ -474,7 +474,7 @@ function initWeaponSelect() {
         // Description
         var desc = describeRank(data);
         desc = sbs(desc, '%$', lang.degree_symbol || '\u00b0');
-        pprint(desc, px + rpw / 2, py + 32 + 8, rpw, 3, 1);
+        smallPrint(desc, px + rpw / 2, py + 38, 3, 1);
     };
     elements.push(rankPan);
     menuList.push(rankPan);
@@ -541,7 +541,7 @@ function initWeaponSelect() {
         }
         
         // Title - weapon name
-        lprint(data.name, px + wpw / 2, py + 3, 3, 1);
+        smallPrint(data.name, px + wpw / 2, py + 3, 3, 1);
         
         // Weapon sprite with border
         var sprX = px + 20;  // 16 + 4
@@ -592,16 +592,16 @@ function initWeaponSelect() {
             var stx = sx + (col % 2) * 62;
             var sty = sy + Math.floor(col / 2) * 7;
             
-            lprint(lbl, stx, sty, 3);
-            
+            smallPrint(lbl, stx, sty, 3);
+
             var valStr = String(val);
             if (id === 'spread') valStr += lang.degree_symbol || '\u00b0';
             if (id === 'knockback') valStr += '%';
             if (id === 'pierce') valStr += '%';
             if (id === 'all_freereload') valStr = '';
-            
-            var lblW = txtwidth(lbl);
-            lprint(valStr, stx + lblW + 3, sty, 4);
+
+            var lblW = txtwidthSmall(lbl, 8);
+            smallPrint(valStr, stx + lblW + 3, sty, 4);
             col++;
         }
     };

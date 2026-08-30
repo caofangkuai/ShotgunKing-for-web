@@ -117,16 +117,7 @@ const Sugar = {
         this.checkOrientation();
     },
     
-    checkOrientation() {
-        const isPortrait = window.innerHeight > window.innerWidth;
-        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-        const prompt = document.getElementById('rotate-prompt');
-        if (isMobile && isPortrait) {
-            prompt.classList.add('show');
-        } else {
-            prompt.classList.remove('show');
-        }
-    },
+
     
     // === COLOR / PALETTE ===
     color(c) {
@@ -774,7 +765,7 @@ const Sugar = {
         const ctx = this.getTargetCtx();
 
         // Use a fixed readable size that fits in buttons
-        const fontSize = 8;
+        const fontSize = 10;
         const fontName = 'monospace';
 
         let rx = x;
