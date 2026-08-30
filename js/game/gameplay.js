@@ -1203,12 +1203,11 @@ function oppAtk(atk, def, cb) {
                 // Crush animation - hero squashed
                 if (hero) {
                     const squash = loop(function(ev) {
-                        hero.scaleY = 1 - ev.t / 10;
-                        if (ev.t >= 10) {
-                            kl(squash);
-                            gameover();
-                        }
-                    }, 10);
+                        hero.scaleY = Math.max(0, 1 - ev.t / 10);
+                    }, 11);
+                    squash.nxt = function() {
+                        gameover();
+                    };
                 }
                 return;
             }
