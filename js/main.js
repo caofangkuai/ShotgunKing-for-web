@@ -475,12 +475,6 @@ function handleMoveInput() {
         gameState.hoveredPiece = sq.p;
     }
     
-    // Double-click on enemy to aim and shoot at it (only in move mode)
-    if (Input.mouse.dclick && sq && sq.p && sq.p.bad && !sq.p.inert) {
-        aimAndFireAt(sq);
-        return;
-    }
-    
     // Single-click on highlighted empty square to move only (no attack)
     if (Input.mouse.down && !Input._prevDown) {
         if (sq && sq.highlight && !sq.p) {
@@ -587,8 +581,8 @@ function handleAimInput() {
         gameState.hoveredPiece = hoverSq.p;
     }
 
-    // Fire on fresh click (mouse was not down last frame, but is down now)
-    if (Input.mouse.down && !Input._prevDown && chamber > 0) {
+    // Double-click to fire
+    if (Input.mouse.dclick && chamber > 0) {
         fire();
         // After shooting, can shoot again if chamber > 0, or end turn
         if (chamber <= 0) {

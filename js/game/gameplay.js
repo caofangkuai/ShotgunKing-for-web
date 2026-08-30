@@ -1631,12 +1631,7 @@ function drawUI() {
         drawGameOverUI();
     }
     
-    // Aim line and scatter visualization
-    if (hero && !hero.dead && ctrlMode === 'aim' && chamber > 0) {
-        drawAimVisualization();
-    }
-
-    // Hover info for squares (attack range, name, HP)
+    // Hover info for squares (name, HP, attack info)
     if (typeof gameState !== 'undefined' && gameState.hoveredSq && gameState.hoveredPiece) {
         drawHoverInfo(gameState.hoveredSq, gameState.hoveredPiece);
     }
@@ -1765,9 +1760,6 @@ function drawHoverInfo(sq, piece) {
     if (piece.stun) {
         lprint('Stun', infoX + 110, statusY, 10);
     }
-
-    // Highlight attack range on board
-    highlightAttackRange(piece);
 }
 
 // Get piece attack range
