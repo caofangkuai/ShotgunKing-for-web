@@ -1612,12 +1612,14 @@ function getDispStats() {
 
 function drawCardsPanel() {
     const maxSlots = 10;
-    const cardW = 20;
+    const cardW = 24;
     const startY = boardY;
     const availH = ymax * SQ;
     const slotH = Math.floor(availH / maxSlots);
     
     if (!cardSlots) return;
+    
+    spritesheet('cards');
     
     // Split card slots by team
     var whiteSlots = [];
@@ -1647,16 +1649,17 @@ function drawCardsPanel() {
                 // Flipped card - dark with X mark
                 rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
                 rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
-                lprint('X', cx + cardW / 2, cy + 1, 2, 1);
+                lprint('X', cx + cardW / 2, cy + 2, 2, 1);
             } else {
-                // Active card - brown background for black team
-                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 4);
+                // Active card - draw from spritesheet
+                if (ca.gid !== undefined) {
+                    const sx = (ca.gid % 16) * 16;
+                    const sy = Math.floor(ca.gid / 16) * 16;
+                    sspr(sx, sy, 16, 16, cx + 2, cy + 2, cardW - 4, slotH - 8);
+                } else {
+                    rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 4);
+                }
                 rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
-                // Show short card name (truncate to fit 20px width)
-                var name = ca.id || ca.name || '';
-                // For 12px font, only ~2 chars fit in 20px
-                if (name.length > 2) name = name.substring(0, 2);
-                lprint(name, cx + cardW / 2, cy + 1, 7, 1);
             }
         }
     }
@@ -1678,17 +1681,22 @@ function drawCardsPanel() {
                 // Flipped card
                 rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
                 rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
-                lprint('X', cx + cardW / 2, cy + 1, 2, 1);
+                lprint('X', cx + cardW / 2, cy + 2, 2, 1);
             } else {
-                // Active card - dark gray for white team
-                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+                // Active card - draw from spritesheet
+                if (ca.gid !== undefined) {
+                    const sx = (ca.gid % 16) * 16;
+                    const sy = Math.floor(ca.gid / 16) * 16;
+                    sspr(sx, sy, 16, 16, cx + 2, cy + 2, cardW - 4, slotH - 8);
+                } else {
+                    rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+                }
                 rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
-                var name2 = ca.id || ca.name || '';
-                if (name2.length > 2) name2 = name2.substring(0, 2);
-                lprint(name2, cx + cardW / 2, cy + 1, 7, 1);
             }
         }
     }
+    
+    spritesheet('gfx');
 }
 
 function drawLevelUpUI() {
