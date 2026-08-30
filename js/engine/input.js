@@ -1,7 +1,7 @@
 // Input System - handles mouse, keyboard, and touch input
 
 const Input = {
-    mouse: { x: 0, y: 0, px: 0, py: 0, down: false, pressed: false, released: false, rightDown: false, rightPressed: false, dclick: false },
+    mouse: { x: 0, y: 0, px: 0, py: 0, down: false, pressed: false, released: false, rightDown: false, rightPressed: false, dclick: false, freshClick: false },
     keys: {},
     keysPressed: {},
     touchActive: false,
@@ -11,6 +11,7 @@ const Input = {
     _dclickThreshold: 300,
     _dclickDist: 20,
     _mouseWasReleased: true,
+    _prevDown: false,
     
     init() {
         const canvas = Sugar.canvas;
@@ -219,7 +220,9 @@ const Input = {
         this.mouse.released = false;
         this.mouse.rightPressed = false;
         this.mouse.dclick = false;
+        this.mouse.freshClick = false;
         this.keysPressed = {};
+        this._prevDown = this.mouse.down;
     },
     
     // Check if mouse is over a rectangle

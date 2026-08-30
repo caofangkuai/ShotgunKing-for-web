@@ -482,7 +482,7 @@ function handleMoveInput() {
     }
     
     // Single-click on highlighted empty square to move only (no attack)
-    if (Input.mouse.pressed) {
+    if (Input.mouse.down && !Input._prevDown) {
         if (sq && sq.highlight && !sq.p) {
             // Move hero to this square (only if empty)
             moveHero(sq, function() {
@@ -491,7 +491,7 @@ function handleMoveInput() {
             });
             return;
         }
-        
+
         // Click on self = stay and aim
         if (sq && sq.p === hero) {
             ctrlMode = 'aim';
@@ -578,9 +578,17 @@ function bladeAttack(target, cb) {
 }
 
 function handleAimInput() {
-    // Only fire on a fresh click (mouse was released before this press)
-    // Input.mouse.freshClick is true only if mouse was released since last click
-    if (Input.mouse.pressed && Input.mouse.freshClick && chamber > 0) {
+    // Track hovered square for info display (also during aim phase)
+    gameState.hoveredSq = null;
+    gameState.hoveredPiece = null;
+    const hoverSq = getSquareAt(Input.mouse.x, Input.mouse.y);
+    if (hoverSq) {
+        gameState.hoveredSq = hoverSq;
+        gameState.hoveredPiece = hoverSq.p;
+    }
+
+    // Fire on fresh click (mouse was not down last frame, but is down now)
+    if (Input.mouse.down && !Input._prevDown && chamber > 0) {
         fire();
         // After shooting, can shoot again if chamber > 0, or end turn
         if (chamber <= 0) {

@@ -12,6 +12,14 @@ const Lang = {
     
     async load(name) {
         this.currentLang = name;
+        // Return cached data if already loaded
+        if (this._loaded && this._loaded[name]) {
+            this.data = this._loaded[name].data;
+            this.plural = this._loaded[name].plural;
+            this.numbered = this._loaded[name].numbered;
+            this.applyFont();
+            return;
+        }
         try {
             // Add 3s timeout for fetch (mobile networks can be slow)
             const controller = new AbortController();
@@ -20,6 +28,13 @@ const Lang = {
             clearTimeout(timeout);
             const text = await response.text();
             this.parse(text);
+            // Cache the loaded language data
+            if (!this._loaded) this._loaded = {};
+            this._loaded[name] = {
+                data: { ...this.data },
+                plural: { ...this.plural },
+                numbered: { ...this.numbered },
+            };
         } catch (e) {
             console.error('Failed to load language:', name, e);
             if (name !== 'english') {

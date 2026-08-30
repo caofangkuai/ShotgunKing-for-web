@@ -47,19 +47,24 @@ const Sugar = {
     // Surfaces (offscreen canvases)
     surfaces: {},
     currentTarget: null, // null = main screen
-    
+
     // Spritesheets
     spritesheets: {},
     currentSheet: 'gfx',
     sprW: 16,
     sprH: 16,
-    
+    _loadingSheets: {}, // track in-flight spritesheet loads
+
     // Font
     fonts: {},
     currentFont: 'pico',
     fontSize: 8,
     fontLineHeight: 8,
     fontDy: 0,
+    _loadingFonts: {}, // track in-flight font loads
+
+    // General resource cache for fetched data
+    _resourceCache: {},
 
     // HD Text Overlay
     overlayScale: 2,
@@ -362,7 +367,20 @@ const Sugar = {
     
     // === SPRITESHEETS ===
     loadSpritesheet(name, src, callback) {
-        return new Promise((resolve) => {
+        // Return cached image if already loaded
+        if (this.spritesheets[name]) {
+            if (callback) callback(this.spritesheets[name]);
+            return Promise.resolve(this.spritesheets[name]);
+        }
+        // Return existing promise if currently loading
+        if (this._loadingSheets && this._loadingSheets[name]) {
+            return this._loadingSheets[name].then(img => {
+                if (callback) callback(img);
+                return img;
+            });
+        }
+        if (!this._loadingSheets) this._loadingSheets = {};
+        const promise = new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
                 this.spritesheets[name] = img;
@@ -372,15 +390,19 @@ const Sugar = {
                 srf.height = img.height;
                 srf.getContext('2d').drawImage(img, 0, 0);
                 this.surfaces[name] = srf;
+                delete this._loadingSheets[name];
                 if (callback) callback(img);
                 resolve(img);
             };
             img.onerror = () => {
                 console.error('Failed to load spritesheet:', src);
+                delete this._loadingSheets[name];
                 resolve(null);
             };
             img.src = src;
         });
+        this._loadingSheets[name] = promise;
+        return promise;
     },
     
     spritesheet(name) {
@@ -499,9 +521,20 @@ const Sugar = {
     },
     
     addfont(name, overlay, src, charset) {
+        // Return cached font if already loaded
+        if (this.fonts[name]) {
+            return Promise.resolve(this.fonts[name]);
+        }
+        // Return existing promise if currently loading
+        if (this._loadingFonts && this._loadingFonts[name]) {
+            return this._loadingFonts[name];
+        }
+        if (!this._loadingFonts) this._loadingFonts = {};
+        const self = this;
+        let promise;
         if (typeof src === 'string' && src.endsWith('.png')) {
             // Bitmap font from image - extract pixel masks
-            return this.loadSpritesheet(name + '_font', src).then(img => {
+            promise = this.loadSpritesheet(name + '_font', src).then(img => {
                 if (img) {
                     var charW = 4, charH = 5;
                     var masks = {};
@@ -527,15 +560,20 @@ const Sugar = {
                             masks[ch] = mask;
                         }
                     } catch(e) { console.warn('Font mask extraction failed:', e); }
-                    this.fonts[name] = { type: 'bitmap', masks: masks, charW: charW, charH: charH, charset: charset, dy: 0, h: 7, overlay: overlay };
+                    self.fonts[name] = { type: 'bitmap', masks: masks, charW: charW, charH: charH, charset: charset, dy: 0, h: 7, overlay: overlay };
                 }
+                delete self._loadingFonts[name];
+                return self.fonts[name];
             });
         } else if (typeof src === 'string' && src.endsWith('.ttf')) {
             // TrueType font
             this.fonts[name] = { type: 'ttf', src: src, dy: 0, h: 12, sz: 12, overlay: overlay };
-            return Promise.resolve();
+            promise = Promise.resolve(this.fonts[name]);
+        } else {
+            promise = Promise.resolve();
         }
-        return Promise.resolve();
+        this._loadingFonts[name] = promise;
+        return promise;
     },
     
     loadAllFonts() {
@@ -923,6 +961,28 @@ const Sugar = {
         ctx.restore();
     },
     
+    // === GENERAL RESOURCE CACHE ===
+    fetchCached(url, type) {
+        if (this._resourceCache[url]) {
+            return this._resourceCache[url];
+        }
+        const promise = fetch(url)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed: ' + url);
+                return type === 'json' ? res.json() : res.text();
+            })
+            .then(data => {
+                this._resourceCache[url] = Promise.resolve(data);
+                return data;
+            })
+            .catch(err => {
+                delete this._resourceCache[url];
+                throw err;
+            });
+        this._resourceCache[url] = promise;
+        return promise;
+    },
+
     // === MAIN DRAW ===
     present() {
         // Draw fade overlay

@@ -10,6 +10,7 @@ let selectedRank = 0;
 let skipIntro = false;
 let titleEntity = null;
 let menuSelIndex = -1;
+let titleEntities = []; // tracks title screen entities for cleanup
 
 // === TITLE SCREEN ===
 function initMenu(gotoPlay) {
@@ -49,6 +50,7 @@ function initMenu(gotoPlay) {
     // CASTLE - slides up from below
     const castle = mke(0, 0, 17 + MCH / 2);
     castle.dp = DP_BG + 1;
+    titleEntities.push(castle);
     castle.dr = function(e, x, y) {
         spritesheet('title');
         sspr(0, 189, 307, 163, x, y);
@@ -60,6 +62,7 @@ function initMenu(gotoPlay) {
     // TREES - slides up from below
     const trees = mke(0, 0, 73 + MCH);
     trees.dp = DP_BG + 1;
+    titleEntities.push(trees);
     trees.dr = function(e, x, y) {
         spritesheet('title');
         sspr(463, 216, 49, 29, x, y + 78);
@@ -79,6 +82,7 @@ function initMenu(gotoPlay) {
     // PIECES - slides up from below
     const pieces = mke(0, 0, 114 + MCH * 2);
     pieces.dp = DP_BG + 2;
+    titleEntities.push(pieces);
     pieces.dr = function(e, x, y) {
         spritesheet('title');
         sspr(320, 114, 192, 66, x, y);
@@ -160,6 +164,11 @@ function initMenu(gotoPlay) {
 // === OPEN MENU ===
 function openMenu(a, type) {
     closeMenu();
+    // Clean up title screen entities to prevent overlap
+    for (var i = 0; i < titleEntities.length; i++) {
+        kl(titleEntities[i]);
+    }
+    titleEntities = [];
     menuList = [];
     menuSelIndex = 0;
     

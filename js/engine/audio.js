@@ -26,32 +26,54 @@ const AudioManager = {
     },
     
     loadSfx(name, path) {
-        return new Promise((resolve) => {
+        // Return cached audio if already loaded
+        if (this.sfx[name]) {
+            return Promise.resolve(this.sfx[name]);
+        }
+        // Return existing promise if currently loading
+        if (this._loadingSfx && this._loadingSfx[name]) {
+            return this._loadingSfx[name];
+        }
+        if (!this._loadingSfx) this._loadingSfx = {};
+        const promise = new Promise((resolve) => {
             const audio = new Audio();
             audio.src = path;
             audio.preload = 'auto';
             let done = false;
-            const finish = () => { if (!done) { done = true; resolve(); } };
+            const finish = () => { if (!done) { done = true; delete this._loadingSfx[name]; resolve(audio); } };
             audio.addEventListener('canplaythrough', finish, { once: true });
             audio.addEventListener('error', finish, { once: true });
             setTimeout(finish, 3000); // 3s timeout
             this.sfx[name] = audio;
         });
+        this._loadingSfx[name] = promise;
+        return promise;
     },
-    
+
     loadMusic(name, path) {
-        return new Promise((resolve) => {
+        // Return cached audio if already loaded
+        if (this.music[name]) {
+            return Promise.resolve(this.music[name]);
+        }
+        // Return existing promise if currently loading
+        if (this._loadingMusic && this._loadingMusic[name]) {
+            return this._loadingMusic[name];
+        }
+        if (!this._loadingMusic) this._loadingMusic = {};
+        const promise = new Promise((resolve) => {
             const audio = new Audio();
             audio.src = path;
             audio.preload = 'auto';
             audio.loop = true;
             let done = false;
-            const finish = () => { if (!done) { done = true; resolve(); } };
+            const finish = () => { if (!done) { done = true; delete this._loadingMusic[name]; resolve(audio); } };
             audio.addEventListener('canplaythrough', finish, { once: true });
             audio.addEventListener('error', finish, { once: true });
             setTimeout(finish, 3000); // 3s timeout
             this.music[name] = audio;
         });
+        this._loadingMusic[name] = promise;
+        return promise;
     },
     
     playSfx(name, volume) {
