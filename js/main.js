@@ -396,6 +396,7 @@ function _draw() {
         camera();
         Sugar.updateFade();
         Sugar.drawFade();
+        Sugar.drawOverlay();
     }
 }
 

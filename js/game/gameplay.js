@@ -55,8 +55,12 @@ let eventQueue = [];
 let executions = [];
 
 // === LOADING SCREEN ===
+let isLoading = false;
 function showLoadingScreen(callback) {
-    // Set draw function to show loading screen
+    isLoading = true;
+    let loadingDrawn = false;
+
+    // Override mdr to show loading screen until callback runs
     mdr = function() {
         cls(0);
         const barW = 160;
@@ -83,10 +87,14 @@ function showLoadingScreen(callback) {
             ctx.arc(x, y, 2, 0, Math.PI * 2);
             ctx.fill();
         }
+        loadingDrawn = true;
     };
 
-    // Run callback after a short delay to let the loading screen render
-    wait(10, callback);
+    // Run callback after loading screen has rendered at least 1 frame
+    wait(5, function() {
+        callback();
+        isLoading = false;
+    });
 }
 
 // === INIT GAME ===
@@ -94,7 +102,10 @@ function initGame() {
     Entity.reset();
     mode.frags = {};
     fadeTo(0, 30);
-    mdr = drawGame;
+    // Don't set mdr here - let loading screen or vignette control drawing
+    if (!isLoading) {
+        mdr = drawGame;
+    }
     gameMode = gameMode || 'throne';
     ingame = true;
     newBestTime = null;
@@ -1620,36 +1631,179 @@ function drawUI() {
         drawGameOverUI();
     }
     
+    // Aim line and scatter visualization
+    if (hero && !hero.dead && ctrlMode === 'aim' && chamber > 0) {
+        drawAimVisualization();
+    }
+
     // Hover info for squares (attack range, name, HP)
     if (typeof gameState !== 'undefined' && gameState.hoveredSq && gameState.hoveredPiece) {
         drawHoverInfo(gameState.hoveredSq, gameState.hoveredPiece);
     }
 }
 
+// === AIM VISUALIZATION ===
+function drawAimVisualization() {
+    if (!hero || !hero.sq) return;
+
+    const heroX = hero.x + 8;
+    const heroY = hero.y + 8;
+    const aimAngle = hero.an;
+    const range = getFirerange() * SQ;
+    const spreadRad = (getSpread() / 360) * Math.PI * 2; // convert degrees to radians
+
+    // Draw scatter arc (cone)
+    const ctx = Sugar.ctx;
+    const os = Sugar.overlayScale;
+    ctx.save();
+    ctx.scale(os, os);
+
+    // Draw scatter cone as filled arc
+    ctx.fillStyle = 'rgba(255, 0, 77, 0.15)';
+    ctx.beginPath();
+    ctx.moveTo(heroX, heroY);
+    const segments = 12;
+    const startAngle = aimAngle - spreadRad / 2;
+    const endAngle = aimAngle + spreadRad / 2;
+    for (let i = 0; i <= segments; i++) {
+        const a = startAngle + (endAngle - startAngle) * (i / segments);
+        const px = heroX + Math.cos(a) * range;
+        const py = heroY + Math.sin(a) * range;
+        ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw scatter cone edges
+    ctx.strokeStyle = 'rgba(255, 0, 77, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(heroX, heroY);
+    ctx.lineTo(heroX + Math.cos(startAngle) * range, heroY + Math.sin(startAngle) * range);
+    ctx.moveTo(heroX, heroY);
+    ctx.lineTo(heroX + Math.cos(endAngle) * range, heroY + Math.sin(endAngle) * range);
+    ctx.stroke();
+
+    // Draw center aim line
+    ctx.strokeStyle = '#ff004d';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(heroX, heroY);
+    ctx.lineTo(heroX + Math.cos(aimAngle) * range, heroY + Math.sin(aimAngle) * range);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+}
+
 function drawHoverInfo(sq, piece) {
     if (!sq || !piece) return;
-    
-    const infoX = 4;
-    const infoY = MCH - 32;
-    const infoW = MCW - 8;
-    const infoH = 28;
-    
+
+    const infoX = 2;
+    const infoY = MCH - 36;
+    const infoW = MCW - 4;
+    const infoH = 34;
+
     // Background
     rectfill(infoX, infoY, infoX + infoW, infoY + infoH, 1);
     rect(infoX, infoY, infoX + infoW, infoY + infoH, 5);
-    
+
     // Piece name
     const pieceName = getPieceName(piece);
     lprint(pieceName, infoX + 4, infoY + 2, 7);
-    
+
     // HP
     const hpStr = 'HP: ' + (piece.hp || 1) + '/' + (piece.hp_max || piece.hp || 1);
     lprint(hpStr, infoX + 4, infoY + 12, 8);
-    
-    // Attack range for enemies
+
+    // Attack info for enemies
     if (piece.bad && !piece.inert) {
-        const rangeStr = 'Range: ' + (piece.firerange || 1);
-        lprint(rangeStr, infoX + 50, infoY + 12, 11);
+        const atkStr = 'ATK: ' + (piece.atk || 1);
+        lprint(atkStr, infoX + 60, infoY + 12, 8);
+        const rangeStr = 'Range: ' + getPieceAttackRange(piece);
+        lprint(rangeStr, infoX + 100, infoY + 12, 11);
+    }
+
+    // Status effects
+    var statusY = infoY + 22;
+    if (piece.shield) {
+        lprint('Shield:' + piece.shield, infoX + 4, statusY, 12);
+    }
+    if (piece.bleed) {
+        lprint('Bleed:' + piece.bleed, infoX + 60, statusY, 8);
+    }
+    if (piece.stun) {
+        lprint('Stun', infoX + 110, statusY, 10);
+    }
+
+    // Highlight attack range on board
+    highlightAttackRange(piece);
+}
+
+// Get piece attack range
+function getPieceAttackRange(piece) {
+    if (!piece || !piece.behavior) return 1;
+    var maxRange = 1;
+    for (var i = 0; i < piece.behavior.length; i++) {
+        var b = piece.behavior[i];
+        if (b.atk) {
+            if (b.id === 'line') {
+                maxRange = Math.max(maxRange, b[3] || 8);
+            } else if (b.id === 'jump') {
+                maxRange = Math.max(maxRange, 2);
+            }
+        }
+    }
+    return maxRange;
+}
+
+// Highlight squares that a piece can attack
+function highlightAttackRange(piece) {
+    if (!piece || !piece.sq || !piece.behavior) return;
+
+    spritesheet('gfx');
+    var sq = piece.sq;
+    var pieceX = board.x + sq.px * SQ + SQ / 2;
+    var pieceY = board.y + sq.py * SQ + SQ / 2;
+
+    for (var i = 0; i < piece.behavior.length; i++) {
+        var b = piece.behavior[i];
+        if (!b.atk) continue;
+
+        if (b.id === 'line') {
+            var dirStart = b[1];
+            var dirEnd = b[2];
+            var maxRange = b[3] || 8;
+            for (var d = dirStart; d <= dirEnd; d++) {
+                var dx = DIRS[d * 2];
+                var dy = DIRS[d * 2 + 1];
+                for (var r = 1; r <= maxRange; r++) {
+                    var tx = sq.px + dx * r;
+                    var ty = sq.py + dy * r;
+                    if (tx < 0 || tx >= 8 || ty < 0 || ty >= 8) break;
+                    var targetSq = gsq(tx, ty);
+                    if (!targetSq) break;
+                    var sx = board.x + tx * SQ;
+                    var sy = board.y + ty * SQ;
+                    rect(sx + 2, sy + 2, sx + SQ - 3, sy + SQ - 3, 8);
+                    if (targetSq.p) break; // blocked by piece
+                }
+            }
+        } else if (b.id === 'jump') {
+            // Knight-style jumps: pairs of x,y offsets
+            for (var j = 4; j < b.length; j += 2) {
+                var jx = b[j];
+                var jy = b[j + 1];
+                var tx = sq.px + jx;
+                var ty = sq.py + jy;
+                if (tx >= 0 && tx < 8 && ty >= 0 && ty < 8) {
+                    var sx = board.x + tx * SQ;
+                    var sy = board.y + ty * SQ;
+                    rect(sx + 2, sy + 2, sx + SQ - 3, sy + SQ - 3, 8);
+                }
+            }
+        }
     }
 }
 
@@ -1689,8 +1843,8 @@ function getDispStats() {
 }
 
 function drawCardsPanel() {
-    const maxSlots = 10;
-    const cardW = 24;
+    const maxSlots = 8;
+    const cardW = 28;
     const startY = boardY;
     const availH = ymax * SQ;
     const slotH = Math.floor(availH / maxSlots);
@@ -2095,16 +2249,16 @@ function showVignetteSequence(seq, nxt) {
     
     const desc = vigTexts[id] || '';
     
-    // Create vignette background
+    // Create vignette background (covers entire screen)
     const vbg = mke(0, 0, 0);
-    vbg.dp = DP_TOP;
+    vbg.dp = DP_TOP + 1; // above everything
     vbg.dr = function() {
         rectfill(0, 0, MCW, MCH, 0);
     };
     
     // Create vignette entity
     const e = mke(0, 0, 16);
-    e.dp = DP_TOP;
+    e.dp = DP_TOP + 1;
     let tt = 0;
     let fast = false;
     let leaving = false;

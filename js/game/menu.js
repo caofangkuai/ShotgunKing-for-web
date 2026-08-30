@@ -1140,6 +1140,7 @@ function drawMenu() {
     camera();
     Sugar.updateFade();
     Sugar.drawFade();
+    Sugar.drawOverlay();
 }// === PAUSE ===
 function pauseGame() {
     if (!ingame || !playing) return;
