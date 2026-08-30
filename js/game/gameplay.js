@@ -92,8 +92,8 @@ function showLoadingScreen(callback) {
 
     // Run callback after loading screen has rendered at least 1 frame
     wait(5, function() {
-        callback();
         isLoading = false;
+        callback();
     });
 }
 
