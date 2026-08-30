@@ -25,6 +25,7 @@ let chamber = 0;
 let ammo = 0;
 let grenades = 0;
 let reloading = null;
+let reloadBtnRect = null;
 let buildingAmmo = null;
 let shields = 2;
 let waitAmmo = 0;
@@ -145,11 +146,21 @@ function initGame() {
     }
     upgrades = tempUpgrades;
     
-    // Background
+    // Background - uses title screen graphics (castle, trees, forest)
     bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
         rectfill(0, -32, MCW - 1, MCH + 64 - 1, 1);
+        // Draw title screen background elements
+        spritesheet('title');
+        // Castle at (0, 17)
+        sspr(0, 189, 307, 163, 0, 17);
+        // Trees
+        sspr(463, 216, 49, 29, 0, 156);
+        sspr(307, 245, 205, 107, 115, 73);
+        // Chess pieces at bottom
+        sspr(320, 114, 192, 66, 0, 114);
+        spritesheet('gfx');
     };
     
     // Board entity
@@ -170,6 +181,8 @@ function initGame() {
     inter.perm = true;
     inter.dp = DP_TOP;
     inter.dr = function() {
+        // Hide UI during vignette/cutscene
+        if (vignetteState) return;
         if (mode && mode.drawInter) mode.drawInter();
         drawUI();
     };
@@ -555,6 +568,12 @@ function getPlacementPositions(type, index) {
 function initNewTurn() {
     if (hero.detected) return;
 
+    // Increment turn counter (matches Lua: mode.turns = mode.turns + 1)
+    mode.turns = (mode.turns || 0) + 1;
+
+    // Increase card turn counts (matches Lua: increase_card_turns)
+    increaseCardTurns();
+
     newTurn();
 }
 
@@ -581,10 +600,15 @@ function newTurn() {
     // Clean squares
     for (const sq of squares) sq.plague = null;
     
-    // Update bad pieces - all enemies act every turn
+    // Update bad pieces - tempo-based readiness (matches Lua)
     for (const e of [...bads]) {
         if (e.dead) continue;
-        e.ready = !e.stun; // All non-stunned enemies are ready each turn
+        e.ready = false;
+        if (!e.stun) {
+            e.cd = (e.cd || 0) + 1;
+            const tempo = getPieceTempo(e);
+            e.ready = e.cd >= tempo;
+        }
         e.hoppedOn = null;
         e.curtsy = null;
         e.cHit = 0;
@@ -622,9 +646,6 @@ function newTurn() {
 function play() {
     if (hero.dead) return;
 
-    // Increment turn counter at start of player turn
-    mode.turns = (mode.turns || 0) + 1;
-
     // Process events
     if (eventQueue.length > 0) {
         const ev = eventQueue.shift();
@@ -651,13 +672,19 @@ function play() {
     
     playing = true;
     timerun = true;
-    
+
+    // Compute danger zones (matches Lua init_safe_mode + paint_danger)
+    initSafeMode();
+
+    // Calculate distances for AI scoring (matches Lua trace_heros_dists)
+    traceHerosDists();
+
     // Clear highlights
     for (const sq of squares) sq.highlight = false;
-    
+
     // Show valid moves
     showValidMoves();
-    
+
     // Set control mode
     ctrlMode = 'move';
 }
@@ -1065,9 +1092,13 @@ function oppMove() {
     // Pick first ready piece
     const e = ready[0];
 
-    // Choose action
+    // Recalculate distances for accurate AI scoring
+    traceHerosDists();
+
+    // Choose action (matches Lua: get_piece_next_action)
     const action = getPieceNextAction(e);
-    e.ready = false; // Mark as processed
+    e.ready = false; // Mark as processed (matches Lua: e.ready=false)
+    e.cd = 0; // Reset cooldown after acting
 
     if (!action) {
         // No valid action, skip
@@ -1078,11 +1109,13 @@ function oppMove() {
     if (action.act === 'attack' && action.atkTarget) {
         // Attack hero from current position
         oppAtk(e, hero, function() {
+            computeDanger(); // Recompute danger after attack
             wait(TEMPO / 2, oppMove);
         });
     } else if (action.act === 'move' && action.sq) {
         // Move piece
         movePiece(e, action.sq, function() {
+            computeDanger(); // Recompute danger after move
             wait(TEMPO / 2, oppMove);
         });
     } else {
@@ -1174,19 +1207,34 @@ function oppAtk(atk, def, cb) {
             screenShake = 15;
             sfx('crush');
 
-            // Check shields
+            // Check shields (matches Lua: e.shield check in hit())
             if (shields > 0) {
                 shields--;
                 sfx('shield');
-                // Enemy bounces off
+                if (inter) inter.cShieldLost = 30;
+                // Enemy bounces off - knockback to original square
+                atk.z = 0;
+                atk.jx = null;
+                atk.jy = null;
+                atk.js = 1;
+                // Bounce animation (enemy gets knocked back)
                 const bounce = loop(function(ev) {
                     const c = ev.t / (t / 2);
-                    atk.z = -Math.sin(c * Math.PI) * 6;
+                    atk.z = -Math.sin(c * Math.PI) * 8;
+                    // Slide back toward original position
+                    const [ox, oy] = sqp(atk.sq);
+                    atk.jx = hx + (ox - hx) * c;
+                    atk.jy = hy + (oy - hy) * c;
                 }, t / 2);
                 wait(t / 2, function() {
                     kl(bounce);
                     atk.z = 0;
+                    atk.jx = null;
+                    atk.jy = null;
+                    // Mark enemy as knocked back (can't act next turn)
+                    atk.kback = true;
                     wait(TEMPO, function() {
+                        atk.kback = false;
                         if (cb) cb();
                     });
                 });
@@ -1741,7 +1789,7 @@ function drawUI() {
         sspr(i < chamber ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
     }
 
-    // Shotgun sprite (right of chamber)
+    // Shotgun sprite (right of chamber) - clickable for manual reload
     spritesheet('weapons');
     let wfr = 96;
     let wfy = 0;
@@ -1749,7 +1797,26 @@ function drawUI() {
         wfy = (mode.weaponsIndex + 1) * 16;
     }
     if (inter && inter.cReload) wfr = 120;
-    sspr(wfr, wfy, 24, 16, boardX + chmax * 4 + 2, boardY - 18);
+    const gunX = boardX + chmax * 4 + 2;
+    const gunY = boardY - 18;
+    sspr(wfr, wfy, 24, 16, gunX, gunY);
+
+    // Manual reload button (matches Lua reload_shotgun)
+    // Show "RELOAD" button when chamber not full and ammo available
+    if (chamber < stack.chamber_max && ammo > 0 && !reloading) {
+        const btnX = gunX + 26;
+        const btnY = gunY;
+        const btnW = 28;
+        const btnH = 16;
+        // Draw button background
+        rectfill(btnX, btnY, btnX + btnW, btnY + btnH, 8);
+        rect(btnX, btnY, btnX + btnW, btnY + btnH, 7);
+        lprint('LOAD', btnX + 4, btnY + 5, 0, 0);
+        // Store button bounds for click detection
+        reloadBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+    } else {
+        reloadBtnRect = null;
+    }
 
     spritesheet('gfx');
 
@@ -1772,8 +1839,13 @@ function drawUI() {
     // Stats panel (left side, between card slots and board)
     drawStatsPanel();
     
-    // Turn counter and difficulty (bottom, below board)
-    var by = boardY + ymax * SQ + 2;
+    // Hover info panel (below board, above turn counter)
+    if (typeof gameState !== 'undefined' && gameState.hoveredSq && gameState.hoveredPiece) {
+        drawHoverInfo(gameState.hoveredSq, gameState.hoveredPiece);
+    }
+
+    // Turn counter and difficulty (bottom, below hover info)
+    var by = boardY + ymax * SQ + 18;
     if (mode.turns) {
         var turnLabel = lang.turn_ || 'Turn:';
         lprint(turnLabel, 2, by, 3);
@@ -1803,10 +1875,6 @@ function drawUI() {
         drawAimVisualization();
     }
 
-    // Hover info for squares (name, HP, attack info)
-    if (typeof gameState !== 'undefined' && gameState.hoveredSq && gameState.hoveredPiece) {
-        drawHoverInfo(gameState.hoveredSq, gameState.hoveredPiece);
-    }
 }
 
 // === AIM VISUALIZATION ===
@@ -1888,9 +1956,9 @@ function drawHoverInfo(sq, piece) {
     if (piece === hero) return;
 
     const infoX = 2;
-    const infoY = MCH - 36;
+    const infoY = boardY + ymax * SQ + 2;
     const infoW = MCW - 4;
-    const infoH = 34;
+    const infoH = 12;
 
     // Background
     rectfill(infoX, infoY, infoX + infoW, infoY + infoH, 1);
@@ -1898,30 +1966,33 @@ function drawHoverInfo(sq, piece) {
 
     // Piece name
     const pieceName = getPieceName(piece);
-    lprint(pieceName, infoX + 4, infoY + 2, 7);
+    lprint(pieceName, infoX + 2, infoY + 2, 7);
 
-    // HP
-    const hpStr = 'HP: ' + (piece.hp || 1) + '/' + (piece.hp_max || piece.hp || 1);
-    lprint(hpStr, infoX + 4, infoY + 12, 8);
+    // HP and attack info on same line
+    const hpStr = 'HP:' + (piece.hp || 1) + '/' + (piece.hp_max || piece.hp || 1);
+    lprint(hpStr, infoX + 50, infoY + 2, 8);
 
     // Attack info for enemies
     if (piece.bad && !piece.inert) {
-        const atkStr = 'ATK: ' + (piece.atk || 1);
-        lprint(atkStr, infoX + 60, infoY + 12, 8);
-        const rangeStr = 'Range: ' + getPieceAttackRange(piece);
-        lprint(rangeStr, infoX + 100, infoY + 12, 11);
+        const atkStr = 'ATK:' + (piece.atk || 1);
+        lprint(atkStr, infoX + 90, infoY + 2, 8);
+        const rangeStr = 'Rng:' + getPieceAttackRange(piece);
+        lprint(rangeStr, infoX + 120, infoY + 2, 11);
     }
 
     // Status effects
-    var statusY = infoY + 22;
+    var statusY = infoY + 2;
+    var statusX = infoX + 150;
     if (piece.shield) {
-        lprint('Shield:' + piece.shield, infoX + 4, statusY, 12);
+        lprint('SHLD:' + piece.shield, statusX, statusY, 12);
+        statusX += 35;
     }
     if (piece.bleed) {
-        lprint('Bleed:' + piece.bleed, infoX + 60, statusY, 8);
+        lprint('BLEED:' + piece.bleed, statusX, statusY, 8);
+        statusX += 35;
     }
     if (piece.stun) {
-        lprint('Stun', infoX + 110, statusY, 10);
+        lprint('STUN', statusX, statusY, 10);
     }
 
     // Highlight attack range on board
@@ -2215,18 +2286,21 @@ function drawCardSlot(ca, x, y, cardW, cardH, idx) {
     if (ca.gid !== undefined) {
         const sx = (ca.gid % 16) * 16;
         const sy = Math.floor(ca.gid / 16) * 16;
-        // Draw card image larger (32x24) to fill the card
-        sspr(sx, sy, 16, 16, x + 4, y + 4, 32, 24);
+        // Draw card image centered and larger
+        sspr(sx, sy, 16, 16, x + (cardW - 32) / 2, y + 2, 32, 32);
     }
 
     // Card name
     const name = ca.id || ca.name || '';
-    smallPrint(name, x + cardW / 2, y + 32, 7, 1);
+    smallPrint(name, x + cardW / 2, y + 36, 7, 1);
 
-    // Show card effect summary
+    // Show card effect summary (truncated to fit)
     const effect = getCardEffectText(ca);
     if (effect) {
-        smallPrint(effect, x + cardW / 2, y + 44, 6, 1);
+        // Truncate if too long
+        const maxLen = 12;
+        const trunc = effect.length > maxLen ? effect.substring(0, maxLen) + '...' : effect;
+        smallPrint(trunc, x + cardW / 2, y + 46, 6, 1);
     }
 
     // Hover/select highlight
@@ -2390,12 +2464,39 @@ function checkFatality(sq, power, tsq) {
     return false; // Simplified
 }
 
+function computeDanger() {
+    // Reset danger for all squares
+    for (const sq of squares) sq.danger = [];
+
+    // For each bad piece, compute attack squares and mark them
+    for (const e of bads) {
+        if (e.dead || e.stun || e.inert) continue;
+        const atkSquares = getRange(e, 'atk', null, true);
+        for (const sq of atkSquares) {
+            if (!sq.danger) sq.danger = [];
+            sq.danger.push(e);
+        }
+    }
+}
+
 function checkFollyShields(sq, shooting) {
-    return true; // Simplified - safe
+    // Matches Lua check_folly_shields: returns true if move is BLOCKED by shield
+    if (!sq || !sq.danger || sq.danger.length === 0) return false;
+    if (shields > 0) {
+        // Consume shield
+        shields--;
+        sfx('shield');
+        // Show danger indicator
+        showDangerZone = true;
+        if (inter) inter.cShieldLost = 30;
+        return true; // Blocked - shield saved hero
+    }
+    return false; // Not blocked - hero moves into danger
 }
 
 function initSafeMode() {
-    // Initialize safety checks
+    // Compute danger zones for all squares (matches Lua paint_danger)
+    computeDanger();
 }
 
 function traceHerosDists() {
@@ -2416,6 +2517,17 @@ function traceAllPieceDist() {
     for (const sq of squares) {
         if (sq.p && sq.p.seek) {
             // Distance calculations per piece type
+        }
+    }
+}
+
+function increaseCardTurns() {
+    if (!cardSlots) return;
+    for (const sl of cardSlots) {
+        if (!sl || !sl.ca || sl.ca.flipped) continue;
+        const ca = sl.ca;
+        if (ca.turn_count !== undefined) {
+            ca.turn_count = (ca.turn_count || 0) + 1;
         }
     }
 }

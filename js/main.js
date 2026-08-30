@@ -483,6 +483,16 @@ function handleMoveInput() {
 
     // Single-click on highlighted empty square to move (ends turn)
     if (Input.mouse.pressed) {
+        // Manual reload button click (matches Lua reload_shotgun)
+        if (reloadBtnRect && Input.mouseInRect(reloadBtnRect.x, reloadBtnRect.y, reloadBtnRect.w, reloadBtnRect.h)) {
+            if (chamber < stack.chamber_max && ammo > 0 && !reloading) {
+                reload();
+                // Manual reload ends turn (matches Lua: wait(30, opp_turn))
+                wait(30, endPlayerTurn);
+            }
+            return;
+        }
+
         if (sq && sq.highlight && !sq.p) {
             moveHero(sq, function() {
                 endPlayerTurn();

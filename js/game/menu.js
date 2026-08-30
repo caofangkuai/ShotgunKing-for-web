@@ -444,15 +444,21 @@ function initWeaponSelect() {
     
     var elements = [];
     
-    // --- Background ---
+    // --- Background (same as title screen) ---
     var bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
-        // Dark background
-        rectfill(0, 0, MCW, MCH, 0);
+        rectfill(0, 0, MCW, MCH, 1);
+        // Draw title screen background elements
+        spritesheet('title');
+        sspr(0, 189, 307, 163, 0, 17);
+        sspr(463, 216, 49, 29, 0, 156);
+        sspr(307, 245, 205, 107, 115, 73);
+        sspr(320, 114, 192, 66, 0, 114);
+        spritesheet('gfx');
         // Decorative border
-        rect(1, 1, MCW - 2, MCH - 2, 1);
-        rect(3, 3, MCW - 4, MCH - 4, 1);
+        rect(1, 1, MCW - 2, MCH - 2, 5);
+        rect(3, 3, MCW - 4, MCH - 4, 5);
     };
     menuList.push(bg);
     

@@ -727,22 +727,24 @@ const Sugar = {
     pprint(str, x, y, w, c, align, lim, outline) {
         if (c === undefined) c = this._color;
         if (align === undefined) align = 0;
-        
+
         str = String(str);
         const words = str.split(' ');
-        let cx = x;
         let cy = y;
         const lh = this.fontLineHeight || 8;
         let lineCount = 0;
         let lineStr = '';
-        
+
+        // For center/right alignment, use the box center/right edge
+        const ax = align === 1 ? x + w / 2 : (align === 2 ? x + w : x);
+
         for (let i = 0; i < words.length; i++) {
             const word = words[i];
             const testStr = lineStr ? lineStr + ' ' + word : word;
             const tw = this.txtwidth(testStr);
-            
+
             if (tw > w && lineStr) {
-                this.lprint(lineStr, x, cy, c, align, outline);
+                this.lprint(lineStr, ax, cy, c, align, outline);
                 cy += lh;
                 lineStr = word;
                 lineCount++;
@@ -752,7 +754,7 @@ const Sugar = {
             }
         }
         if (lineStr && (!lim || lineCount < lim)) {
-            this.lprint(lineStr, x, cy, c, align, outline);
+            this.lprint(lineStr, ax, cy, c, align, outline);
         }
         return cy + lh;
     },
