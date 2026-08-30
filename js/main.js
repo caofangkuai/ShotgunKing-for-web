@@ -316,8 +316,9 @@ function _draw() {
         const barX = (320 - barW) / 2;
         const barY = 90;
         const label = loadingPhase === 'sprites' ? 'LOADING GRAPHICS...' : 'LOADING AUDIO...';
-        const txtW = txtwidth(label);
-        lprint(label, (320 - txtW) / 2, barY - 12, 6);
+        // Use small font for loading label to prevent overlap
+        const txtW = txtwidth4px(label);
+        smallPrint(label, (320 - txtW) / 2, barY - 10, 6);
         rectfill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 5);
         rectfill(barX, barY, barX + barW, barY + barH, 1);
         if (loadingPhase === 'sprites') {
@@ -385,7 +386,12 @@ function updateHeroAim() {
 // === GAMEPLAY INPUT HANDLING ===
 function handleGameInput() {
     if (!hero || hero.dead || hero.inMove) return;
-    
+
+    // Clear justMoved flag from previous frame
+    if (justMoved) {
+        justMoved = false;
+    }
+
     // Pause
     if (btnp('pause')) {
         if (pause) {
@@ -395,31 +401,31 @@ function handleGameInput() {
         }
         return;
     }
-    
+
     // Level up selection
     if (leveling && leveling.choices) {
         handleLevelUpInput();
         return;
     }
-    
+
     // Game over
     if (ingameover) {
         handleGameOverInput();
         return;
     }
-    
+
     // Movement phase
     if (ctrlMode === 'move') {
         handleMoveInput();
     } else if (ctrlMode === 'aim') {
         handleAimInput();
     }
-    
+
     // Reload
     if (btnp('reload') && chamber < stack.chamber_max && ammo > 0) {
         reload();
     }
-    
+
     // End turn (skip)
     if (btnp('cancel') && ctrlMode === 'move') {
         // Confirm end turn
@@ -436,19 +442,21 @@ function handleMoveInput() {
         if (sq && sq.highlight) {
             const targetPiece = sq.p;
             const isEnemy = targetPiece && targetPiece.bad && !targetPiece.inert;
-            
+
             if (isEnemy) {
                 // Blade attack - don't move, just attack
                 bladeAttack(targetPiece, function() {
                     // After blade attack, can still aim and shoot
                     ctrlMode = 'aim';
                     showShootRange();
+                    justMoved = true;
                 });
             } else {
                 // Move hero to this square
                 moveHero(sq, function() {
                     ctrlMode = 'aim';
                     showShootRange();
+                    justMoved = true;
                 });
             }
             return;
@@ -526,16 +534,16 @@ function bladeAttack(target, cb) {
 }
 
 function handleAimInput() {
-    // Click to shoot
-    if (Input.mouse.pressed && chamber > 0) {
-        // Check if clicking on a valid target
+    // Click to shoot - use mouse.down (not pressed) to avoid firing on the same frame as move
+    // Only fire if mouse was newly pressed this frame (not held from move click)
+    if (Input.mouse.pressed && chamber > 0 && !justMoved) {
         fire();
         // After shooting, can shoot again if chamber > 0, or end turn
         if (chamber <= 0) {
             wait(20, endPlayerTurn);
         }
     }
-    
+
     // Space to shoot
     if (btnp('validate') && chamber > 0) {
         fire();
@@ -543,12 +551,12 @@ function handleAimInput() {
             wait(20, endPlayerTurn);
         }
     }
-    
+
     // Cancel = skip shooting, end turn
     if (btnp('cancel')) {
         endPlayerTurn();
     }
-    
+
     // Grenade
     if (btnp('info') && grenades > 0) {
         const sq = getSquareAt(Input.mouse.x, Input.mouse.y);

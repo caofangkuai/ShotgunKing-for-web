@@ -308,23 +308,23 @@ function mkMenuBut(id, x, y, w, h) {
             valc = 4;
         }
         spritesheet('gfx');
-        
+
         // Clip text to button bounds so it doesn't overflow
         clip(x, y, w, BUTTON_HEIGHT);
-        
-        // NAME - centered
+
+        // NAME - centered (use small 4px font like PICO-8)
         var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
         if (e.align_left) {
-            lprint(name, x + 4, txty, labelc);
+            smallPrint(name, x + 4, txty, labelc);
         } else {
-            lprint(name, x + w / 2, txty, labelc, 1);
+            smallPrint(name, x + w / 2, txty, labelc, 1);
         }
-        
+
         // VALUE (for options)
         if (e.val) {
-            lprint(e.val, x + w - 4, txty, valc, 2);
+            smallPrint(e.val, x + w - 4, txty, valc, 2);
         }
-        
+
         // SLIDER
         if (e.slider !== undefined) {
             for (var i = 0; i < 10; i++) {
@@ -333,7 +333,7 @@ function mkMenuBut(id, x, y, w, h) {
                 line(sx, sy - 3, sx, sy + 1, i < e.slider ? valc : 1);
             }
         }
-        
+
         clip();
     };
     
@@ -811,14 +811,14 @@ function mkSquareBut(name, action, pw) {
             labelc = 4;
         }
         spritesheet('gfx');
-        
+
         // Clip text to button bounds
         clip(x, y, e.pw, BUTTON_HEIGHT);
-        
-        // Button text - centered
+
+        // Button text - centered (use small 4px font like PICO-8)
         var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
-        lprint(e.name, x + e.pw / 2, txty, labelc, 1);
-        
+        smallPrint(e.name, x + e.pw / 2, txty, labelc, 1);
+
         clip();
     };
     

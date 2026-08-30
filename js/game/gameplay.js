@@ -50,6 +50,7 @@ let leader = 5;
 let fadeColor = 0;
 let screenShake = 0;
 let waitQueue = [];
+let justMoved = false; // prevent firing on same frame as move
 let eventQueue = [];
 let executions = [];
 
@@ -660,28 +661,37 @@ function getHeroMoves() {
 function moveHero(sq, cb, recoil, t) {
     t = t || TEMPO;
     if (hero.big) t += 12;
-    
+
     leaveSq(hero);
     hero.sq = sq;
     hero.sq.p = hero;
     hero.sq.reserved = null;
-    
+
     const [tx, ty] = sqp(sq);
-    
+
     // Clear highlights
     for (const s of squares) s.highlight = false;
-    
+
+    hero.inMove = true;
+    hero.z = 0;
+
+    // Jump arc animation
+    const ev = loop(function(ev) {
+        const c = ev.t / t;
+        hero.z = -Math.sin(c * Math.PI) * 6;
+    }, t);
+
     const land = function() {
         if (hero.big) {
             sfx('boss_land');
             screenShake = 8;
         }
         hero.inMove = false;
+        hero.z = 0;
         if (cb) cb();
     };
-    
+
     mvt(hero, tx, ty, t, land);
-    hero.inMove = true;
 }
 
 function reload() {
@@ -1043,17 +1053,20 @@ function movePiece(e, sq, cb) {
     }
     
     // Animate movement
-    mvt(e, tx, ty, t, function() {
-        e.inMove = false;
-        if (cb) cb();
-    });
     e.inMove = true;
-    
-    // Jump animation
+    e.z = 0;
+
+    // Jump animation (arc)
     const ev = loop(function(ev) {
         const c = ev.t / t;
-        e.z = -Math.sin(c / 2) * 8;
+        e.z = -Math.sin(c * Math.PI) * 6; // arc height
     }, t);
+
+    mvt(e, tx, ty, t, function() {
+        e.inMove = false;
+        e.z = 0;
+        if (cb) cb();
+    });
 }
 
 function oppAtk(atk, def, cb) {
@@ -1099,9 +1112,39 @@ function oppAtk(atk, def, cb) {
 function endLevel(nxt) {
     timerun = false;
     playing = false;
-    
-    fadeTo(-4, 30, function() {
-        if (nxt) nxt();
+
+    // Show win screen
+    const winBg = mke(0, 0, 0);
+    winBg.dp = DP_TOP;
+    winBg.dr = function() {
+        rectfill(0, 0, MCW, MCH, 1);
+        smallPrint('FLOOR CLEAR!', MCW / 2, MCH / 2 - 20, 5, 1);
+        smallPrint('Mode: ' + (mode.id === 'throne' ? 'Throne' : 'Endless'), MCW / 2, MCH / 2, 7, 1);
+        smallPrint('Floor: ' + (mode.lvl || 1), MCW / 2, MCH / 2 + 10, 6, 1);
+    };
+
+    // Continue button
+    const continueBtn = mkSquareBut('CONTINUE', function() {
+        kl(winBg);
+        fadeTo(-4, 30, function() {
+            if (nxt) nxt();
+        });
+    }, 48);
+    continueBtn.x = MCW / 2 - continueBtn.pw / 2;
+    continueBtn.y = MCH / 2 + 30;
+
+    mdr = function() {
+        for (const e of Entity.entities) dre(e);
+    };
+
+    // Auto-advance after delay if no input
+    wait(120, function() {
+        if (!continueBtn.dead) {
+            kl(winBg);
+            fadeTo(-4, 30, function() {
+                if (nxt) nxt();
+            });
+        }
     });
 }
 
@@ -1303,84 +1346,112 @@ function drawSquare(sq, x, y) {
 
 function drawPiece(e, x, y) {
     if (!e || e.dead) return;
-    
+
     spritesheet('gfx');
-    
-    // Apply z offset and shake displacement
-    const dy = e.z || 0;
-    const dx = e.dcx || 0;
-    const dy2 = e.dcy || 0;
-    
+
+    // Apply shake displacement (like Lua c_shake)
+    let shx = 0;
+    if (e.cShake) {
+        shx = e.cShake * (Math.floor((e.cShake % 3) * 2 - 1));
+        e.cShake *= 0.8;
+        if (e.cShake < 0.5) e.cShake = 0;
+    }
+
+    // Z offset (height)
+    const dz = e.z || 0;
+
+    // Hurt flash effect (like Lua c_hit=30)
+    const isHurt = e.cHit && e.cHit > 0;
+    if (isHurt) e.cHit--;
+
     if (e === hero) {
-        // Draw hero (black king)
-        const fr = 176;
-        sspr(fr, 0, 16, 16, x + dx, y + dy + dy2);
-        
-        // Draw aim indicator
-        if (aim || ctrlMode === 'aim') {
-            const an = hero.an || 0;
-            const ax = x + 8 + cos(an) * 8;
-            const ay = y + 8 + sin(an) * 8;
-            line(x + 8, y + 8, ax, ay, 8);
-        }
-        
-        // Hero hurt flash
-        if (e.cHit && e.cHit > 0) {
-            e.cHit--;
-            if (Math.floor(e.cHit / 4) % 2 === 0) {
-                pal(7, 8);
-                sspr(fr, 0, 16, 16, x + dx, y + dy + dy2);
-                palRst();
-            }
-        }
-    } else if (e.bad) {
-        // Draw white piece
-        const spx = 176 + e.type * 16;
-        let spy = 192;
-        
-        if (e.iron) {
-            spy = 208;
-        }
-        
-        // Hurt flash effect (like Lua c_hit)
-        const isHurt = e.cHit && e.cHit > 0;
-        if (isHurt) {
-            e.cHit--;
-        }
-        
+        // === HERO (Black King) ===
+        // Draw body with PDY offset (like Lua)
+        const bodyX = x + shx;
+        const bodyY = y + dz + PDY;
+
         if (isHurt && Math.floor(e.cHit / 4) % 2 === 0) {
-            // Flash white to red
             pal(7, 8);
-            sspr(spx, spy, 16, 16, x + dx, y + dy + dy2);
+            sspr(176, 0, 16, 16, bodyX, bodyY);
             palRst();
         } else {
-            sspr(spx, spy, 16, 16, x + dx, y + dy + dy2);
+            sspr(176, 0, 16, 16, bodyX, bodyY);
         }
-        
-        // HP bar (always show for damaged pieces)
+
+        // Draw head (king crown) - animated based on angle
+        const an = hero.an || 0;
+        const headIdx = Math.floor(((an % 1) + 1) % 1 * 8) % 8;
+        sspr(56 + headIdx * 8, 64, 8, 8, bodyX + 4, bodyY - 3);
+
+        // Draw shotgun (in front of piece) - like Lua draw_shotgun
+        if ((!mode || !mode.noShotgun) && chamber > 0) {
+            // shotgun sprite at (32,0) size 16x16, drawn at center-bottom
+            sspr(32, 0, 12, 16, bodyX + 8, bodyY + 8);
+        }
+
+        // Draw aim indicator line
+        if (ctrlMode === 'aim') {
+            const aimAn = hero.an || 0;
+            const ax = bodyX + 8 + cos(aimAn) * 12;
+            const ay = bodyY + 8 + sin(aimAn) * 12;
+            line(bodyX + 8, bodyY + 8, ax, ay, 8);
+        }
+
+    } else if (e.bad) {
+        // === ENEMY PIECE ===
+        const bodyX = x + shx;
+        const bodyY = y + dz + PDY;
+        const tp = e.type;
+
+        // Body sprite coordinates from spritesheet
+        // Each piece type has a 16x16 sprite at (176 + type*16, 192)
+        const spx = 176 + tp * 16;
+        let spy = 192;
+        if (e.iron) spy = 208;
+
+        // Draw shadow (depth effect) - like Lua
+        if (dz > -1) {
+            circfill(bodyX + 8, bodyY + 13 + PDY, 5, 0);
+        }
+
+        // Draw body with hurt flash
+        if (isHurt && Math.floor(e.cHit / 4) % 2 === 0) {
+            pal(7, 8);
+            sspr(spx, spy, 16, 16, bodyX, bodyY);
+            palRst();
+        } else {
+            sspr(spx, spy, 16, 16, bodyX, bodyY);
+        }
+
+        // Draw head for king pieces
+        if (tp === 5) {
+            sspr(112, 56, 8, 8, bodyX + 4, bodyY - 3);
+        }
+
+        // HP bar (show when damaged) - positioned above piece
         if (e.hp < e.hp_max) {
             const w = 12;
             const h = 2;
-            const bx = x + 2 + dx;
-            const by = y - 3 + dy + dy2;
+            const bx = bodyX + 2;
+            const by = bodyY - 5;
             rectfill(bx, by, bx + w, by + h, 0);
             const hpw = Math.max(0, Math.floor(w * e.hp / e.hp_max));
             if (hpw > 0) {
                 rectfill(bx, by, bx + hpw, by + h, 8);
             }
         }
-        
-        // Iron protection indicator
+
+        // Protection indicator (like Lua c_protect)
+        if (e.cProtect && e.cProtect > 0) {
+            e.cProtect--;
+            circfill(bodyX + 6, bodyY + 7, 3 + e.cProtect / 6, 5);
+        }
+
+        // Iron flash (like Lua c_iron)
         if (e.cIron && e.cIron > 0) {
             e.cIron--;
         }
     }
-    
-    // Decay shake displacement
-    if (e.dcx) e.dcx *= 0.8;
-    if (e.dcy) e.dcy *= 0.8;
-    if (Math.abs(e.dcx) < 0.1) e.dcx = 0;
-    if (Math.abs(e.dcy) < 0.1) e.dcy = 0;
 }
 
 function drawUI() {

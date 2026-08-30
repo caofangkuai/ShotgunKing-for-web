@@ -12,7 +12,27 @@ const ThroneMode = {
     lvl: 0,
     turns: 0,
     frags: {},
-    
+    noShotgun: false,
+    onHeroDeath: null, // Will use default gameover screen
+    in_cine: false,
+    infinite_shield: false,
+    storming: false,
+    bossfight: false,
+    rev_deathcount: false,
+    deathcount_trig: -1,
+    paralysis: 0,
+    flagstones: false,
+    grab: false,
+    autofire: false,
+    throwing: false,
+    surrender: false,
+    tactic: 0,
+    alarm: 0,
+    onBossDeath: function() {
+        hero.win = true;
+        checkLevelEnd();
+    },
+
     initialize() {
         // Load saved selections
         if (Save.data.prog.throne) {
@@ -136,5 +156,17 @@ const ThroneMode = {
     
     drawInter() {
         // Mode-specific UI drawing handled by drawUI in gameplay.js
+    },
+    check_unlocks: function() {
+        // Check for unlocks (simplified)
+    },
+    on_new_turn: function() {
+        // Mode-specific new turn logic
+    },
+    on_bad_hurt: function(e) {
+        // Mode-specific bad hurt logic
+    },
+    on_leader_death: function() {
+        // Mode-specific leader death logic
     },
 };
