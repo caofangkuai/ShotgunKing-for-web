@@ -258,24 +258,26 @@ function getRange(p, tag, soulType, planning) {
 function getPieceNextAction(e) {
     // Check if piece is ready
     if (!e.ready) return null;
-    
-    // Create current state grid
-    const curgr = mkGrid();
-    scoreGrid(curgr, e);
-    const curscore = curgr.score;
-    
+
     const grids = [];
-    
-    // Evaluate moves (including attack moves that can capture hero)
-    const moves = getRange(e, "move");
-    // Also add attack squares where hero is (for pawns with different attack directions)
-    const atks = getRange(e, "atk");
-    for (const sq of atks) {
-        if (sq.p === hero && !moves.includes(sq)) {
-            moves.push(sq);
+
+    // Check if hero is within attack range - if so, generate attack action
+    const atkSquares = getRange(e, "atk");
+    for (const sq of atkSquares) {
+        if (sq.p === hero) {
+            // Can attack hero from current position
+            const grid = mkGrid();
+            grid.sq = e.sq;
+            grid.atkTarget = sq;
+            scoreGrid(grid, e);
+            grid.act = "attack";
+            grids.push(grid);
+            break; // Only need one attack action
         }
     }
-    
+
+    // Evaluate moves
+    const moves = getRange(e, "move");
     for (const sq of moves) {
         const grid = mkGrid();
         grid.sq = sq;
@@ -284,27 +286,27 @@ function getPieceNextAction(e) {
         grid.act = "move";
         grids.push(grid);
     }
-    
+
     if (grids.length === 0) return null;
-    
+
     // Sort by score (best first)
     grids.sort((a, b) => b.score - a.score);
-    
+
     // Remember grids
     e.grids = {};
     for (const gr of grids) {
         e.grids[gr.sq] = gr;
     }
-    
+
     // Pick from top N (based on ai_lvl)
     const n = Math.min(grids.length, Math.max(1, 3 - (stack.ai_lvl || 0)));
     const pick = irnd(n);
     e.fgr = grids.length > 0 ? grids[pick] : null;
-    
+
     if (e.soulless) {
         e.fgr = grids[irnd(grids.length)];
     }
-    
+
     return e.fgr;
 }
 

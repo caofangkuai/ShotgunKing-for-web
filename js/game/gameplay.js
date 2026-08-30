@@ -968,8 +968,9 @@ function onBossDeath() {
 }
 
 function checkLevelEnd() {
-    const realBads = getRealBads();
-    if (realBads.length === 0) {
+    // Level ends when the king (leader, type 5) is dead
+    const king = bads.find(b => !b.dead && (b.type === 5 || b.type === 8) && !b.inert);
+    if (!king) {
         endLevel(function() {
             if (mode.grow) mode.grow();
             else if (mode.nextFloor) mode.nextFloor();
@@ -1047,27 +1048,32 @@ function oppTurn() {
 function oppMove() {
     // Find next ready piece
     const ready = bads.filter(b => !b.dead && b.ready && !b.stun);
-    
+
     if (ready.length === 0) {
         // All pieces done, start new turn
         initNewTurn();
         return;
     }
-    
+
     // Pick first ready piece
     const e = ready[0];
     e.ready = false;
-    
-    // Choose move
+
+    // Choose action
     const action = getPieceNextAction(e);
-    
+
     if (!action) {
-        // No valid move, skip
+        // No valid action, skip
         wait(TEMPO / 2, oppMove);
         return;
     }
-    
-    if (action.act === 'move' && action.sq) {
+
+    if (action.act === 'attack' && action.atkTarget) {
+        // Attack hero from current position
+        oppAtk(e, hero, function() {
+            wait(TEMPO / 2, oppMove);
+        });
+    } else if (action.act === 'move' && action.sq) {
         // Move piece
         movePiece(e, action.sq, function() {
             wait(TEMPO / 2, oppMove);
@@ -1158,36 +1164,88 @@ function oppAtk(atk, def, cb) {
 function endLevel(nxt) {
     timerun = false;
     playing = false;
-    
-    // Ascend remaining enemies (lightning effect in Android)
+
+    // Ascend remaining enemies with lightning effect
     ascendEnemies(function() {
-        // Show win screen after ascend animation
-        showWinScreen(nxt);
+        // Hero disappear animation (red light from sky)
+        heroDisappear(function() {
+            // Show win screen after hero disappears
+            showWinScreen(nxt);
+        });
+    });
+}
+
+function heroDisappear(nxt) {
+    if (!hero) {
+        if (nxt) nxt();
+        return;
+    }
+
+    // Create red light beam from sky
+    const beam = mke(hero.x, 0, 0);
+    beam.dp = DP_FX;
+    beam.dr = function() {
+        const ctx = Sugar.ctx;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 0, 50, 0.3)';
+        ctx.fillRect(this.x - 8, 0, 16, hero.y + 16);
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.6)';
+        ctx.fillRect(this.x - 4, 0, 8, hero.y + 16);
+        ctx.restore();
+    };
+
+    // Hero floats up and fades in red light
+    hero.ascending = true;
+    const ev = loop(function(ev) {
+        hero.z = hero.z - 0.4;
+        hero.fade = (ev.t % 4 < 2);
+        if (ev.t >= 30) {
+            kl(ev);
+            kl(beam);
+            kl(hero);
+            if (nxt) nxt();
+        }
     });
 }
 
 function ascendEnemies(nxt) {
     const remaining = bads.filter(b => !b.dead && !b.inert);
-    
+
     if (remaining.length === 0) {
         if (nxt) nxt();
         return;
     }
-    
-    // Make remaining enemies float up and fade out
+
+    // Lightning strike effect - all enemies get struck at once
     let completed = 0;
     const total = remaining.length;
-    
+
+    // Screen flash for lightning
+    screenFlash = 15;
+
     for (let i = 0; i < remaining.length; i++) {
         const e = remaining[i];
-        const delay = i * 5; // Stagger the animation
-        
-        wait(delay, function() {
-            e.ascending = true;
-            const ev = loop(function(ev) {
-                e.z = e.z - 0.3; // Float up
-                e.fade = ev.t > 20 ? (ev.t % 4 < 2) : false; // Blink
-                if (ev.t >= 30) {
+
+        // Create lightning bolt effect
+        drawLightningBolt(e);
+
+        e.ascending = true;
+        e.struck = true;
+
+        const ev = loop(function(ev) {
+            if (ev.t < 10) {
+                // Flash white from lightning
+                e.flash = true;
+            } else if (ev.t < 20) {
+                e.flash = false;
+                // Turn to ash (fade to grey)
+                e.ash = true;
+                e.fade = true;
+            } else {
+                // Float up and fade out
+                e.z = e.z - 0.5;
+                e.fade = (ev.t % 3 < 1);
+                if (ev.t >= 40) {
                     kl(ev);
                     kl(e);
                     del(bads, e);
@@ -1196,9 +1254,37 @@ function ascendEnemies(nxt) {
                         nxt();
                     }
                 }
-            });
+            }
         });
     }
+}
+
+function drawLightningBolt(e) {
+    // Create a lightning bolt entity that flashes briefly
+    const bolt = mke(e.x, e.y - 40, 0);
+    bolt.dp = DP_FX;
+    bolt.life = 8;
+    bolt.dr = function() {
+        const ctx = Sugar.ctx;
+        ctx.save();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#88ccff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        let x = this.x + 8;
+        let y = 0;
+        ctx.moveTo(x, y);
+        // Jagged lightning path
+        for (let i = 0; i < 6; i++) {
+            x += (Math.random() - 0.5) * 8;
+            y += (this.y - 40) / 6;
+            ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+    };
+    wait(this.life, function() { kl(bolt); });
 }
 
 function showWinScreen(nxt) {
@@ -2005,18 +2091,17 @@ function drawLevelUpUI() {
     const cardW = 48;
     const cardH = 56;
     const gap = 12;
-    const colGap = 40;
-    const startY = 22;
+    const startY = 18;
 
     // Column headers
-    lprint(lang.player_cards || 'PLAYER', 60, startY - 2, 7, 1);
-    lprint(lang.enemy_cards || 'ENEMY', MCW - 60, startY - 2, 7, 1);
+    lprint(lang.player_cards || 'YOUR CARDS', 60, startY + 2, 7, 1);
+    lprint(lang.enemy_cards || 'ENEMY CARDS', MCW - 60, startY + 2, 7, 1);
 
     // Draw player cards (left column)
     for (let i = 0; i < playerCards.length; i++) {
         const { card: ca, idx } = playerCards[i];
         const x = 36;
-        const y = startY + 8 + i * (cardH + gap);
+        const y = startY + 10 + i * (cardH + gap);
         drawCardSlot(ca, x, y, cardW, cardH, idx);
     }
 
@@ -2024,23 +2109,24 @@ function drawLevelUpUI() {
     for (let i = 0; i < enemyCards.length; i++) {
         const { card: ca, idx } = enemyCards[i];
         const x = MCW - 36 - cardW;
-        const y = startY + 8 + i * (cardH + gap);
+        const y = startY + 10 + i * (cardH + gap);
         drawCardSlot(ca, x, y, cardW, cardH, idx);
     }
 
-    // Show description for hovered card at bottom
+    // Show description for hovered card (above instructions)
     if (leveling.hoverIdx >= 0 && choices[leveling.hoverIdx]) {
         const ca = choices[leveling.hoverIdx];
         const desc = ca.desc || getCardEffectText(ca);
         if (desc) {
-            rectfill(4, MCH - 28, MCW - 4, MCH - 4, 1);
-            rect(4, MCH - 28, MCW - 4, MCH - 4, 5);
-            pprint(desc, MCW / 2, MCH - 24, MCW - 16, 7, 1);
+            const descY = MCH - 26;
+            rectfill(4, descY, MCW - 4, descY + 18, 1);
+            rect(4, descY, MCW - 4, descY + 18, 5);
+            pprint(desc, MCW / 2, descY + 4, MCW - 16, 7, 1);
         }
     }
 
-    // Instructions
-    lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 32, 6, 1);
+    // Instructions at very bottom
+    lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 4, 6, 1);
 }
 
 function drawCardSlot(ca, x, y, cardW, cardH, idx) {
@@ -2077,16 +2163,64 @@ function drawCardSlot(ca, x, y, cardW, cardH, idx) {
 }
 
 function getCardEffectText(ca) {
+    if (ca.desc) return ca.desc;
+
     const parts = [];
-    if (ca.firepower) parts.push('PWR+' + ca.firepower);
-    if (ca.firerange) parts.push('RNG' + (ca.firerange > 0 ? '+' : '') + ca.firerange);
-    if (ca.spread) parts.push('SPR' + (ca.spread > 0 ? '+' : '') + ca.spread);
-    if (ca.ammo_max) parts.push('AMMO' + (ca.ammo_max > 0 ? '+' : '') + ca.ammo_max);
-    if (ca.chamber_max) parts.push('CHMB+' + ca.chamber_max);
-    if (ca.blade) parts.push('BLADE+' + ca.blade);
-    if (ca.knockback) parts.push('KNOCK');
-    if (ca.pierce) parts.push('PIERCE+' + ca.pierce);
-    return parts.join(' ');
+    if (ca.firepower) parts.push('Power ' + (ca.firepower > 0 ? '+' : '') + ca.firepower);
+    if (ca.firerange) parts.push('Range ' + (ca.firerange > 0 ? '+' : '') + ca.firerange);
+    if (ca.spread) parts.push('Spread ' + (ca.spread > 0 ? '+' : '') + ca.spread);
+    if (ca.ammo_max) parts.push('Ammo ' + (ca.ammo_max > 0 ? '+' : '') + ca.ammo_max);
+    if (ca.chamber_max) parts.push('Chamber +' + ca.chamber_max);
+    if (ca.blade) parts.push('Blade +' + ca.blade);
+    if (ca.knockback) parts.push('Knockback');
+    if (ca.pierce) parts.push('Pierce +' + ca.pierce);
+    if (ca.gain) {
+        if (Array.isArray(ca.gain)) {
+            const pieceNames = ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King'];
+            for (let i = 0; i < ca.gain.length; i++) {
+                if (ca.gain[i] > 0) parts.push('+' + ca.gain[i] + ' ' + (pieceNames[i] || 'Piece'));
+            }
+        } else {
+            parts.push('+' + ca.gain + ' Piece');
+        }
+    }
+    if (ca.sac) {
+        if (Array.isArray(ca.sac)) {
+            const pieceNames = ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King'];
+            for (let i = 0; i < ca.sac.length; i++) {
+                if (ca.sac[i] > 0) parts.push('-' + ca.sac[i] + ' ' + (pieceNames[i] || 'Piece'));
+            }
+        } else {
+            parts.push('Sacrifice ' + ca.sac);
+        }
+    }
+    if (ca.leader_hp) parts.push('King HP ' + (ca.leader_hp > 0 ? '+' : '') + ca.leader_hp);
+    if (ca.queen_hp) parts.push('Queen HP ' + (ca.queen_hp > 0 ? '+' : '') + ca.queen_hp);
+    if (ca.all_hp) parts.push('All HP ' + (ca.all_hp > 0 ? '+' : '') + ca.all_hp);
+    if (ca.pawn_hp) parts.push('Pawn HP ' + (ca.pawn_hp > 0 ? '+' : '') + ca.pawn_hp);
+    if (ca.knight_hp) parts.push('Knight HP ' + (ca.knight_hp > 0 ? '+' : '') + ca.knight_hp);
+    if (ca.bishop_hp) parts.push('Bishop HP ' + (ca.bishop_hp > 0 ? '+' : '') + ca.bishop_hp);
+    if (ca.rook_hp) parts.push('Rook HP ' + (ca.rook_hp > 0 ? '+' : '') + ca.rook_hp);
+    if (ca.leader_queen_hp) parts.push('Royal HP ' + (ca.leader_queen_hp > 0 ? '+' : '') + ca.leader_queen_hp);
+    if (ca.pawn_tempo) parts.push('Pawn Speed ' + (ca.pawn_tempo > 0 ? '+' : '') + ca.pawn_tempo);
+    if (ca.knight_tempo) parts.push('Knight Speed ' + (ca.knight_tempo > 0 ? '+' : '') + ca.knight_tempo);
+    if (ca.bishop_tempo) parts.push('Bishop Speed ' + (ca.bishop_tempo > 0 ? '+' : '') + ca.bishop_tempo);
+    if (ca.rook_tempo) parts.push('Rook Speed ' + (ca.rook_tempo > 0 ? '+' : '') + ca.rook_tempo);
+    if (ca.queen_tempo) parts.push('Queen Speed ' + (ca.queen_tempo > 0 ? '+' : '') + ca.queen_tempo);
+    if (ca.all_tempo) parts.push('All Speed ' + (ca.all_tempo > 0 ? '+' : '') + ca.all_tempo);
+    if (ca.hop) parts.push('Hop Ability');
+    if (ca.search) parts.push('Search');
+    if (ca.special) parts.push(ca.special.charAt(0).toUpperCase() + ca.special.slice(1));
+    if (ca.moat) parts.push('Moat ' + ca.moat);
+    if (ca.crown) parts.push('Crown');
+    if (ca.soul_slot) parts.push('Soul Slot +' + ca.soul_slot);
+    if (ca.grenades_max) parts.push('Grenades ' + (ca.grenades_max > 0 ? '+' : '') + ca.grenades_max);
+    if (ca.grenade_dmg) parts.push('Grenade DMG ' + (ca.grenade_dmg > 0 ? '+' : '') + ca.grenade_dmg);
+    if (ca.silencer) parts.push('Silencer');
+    if (ca.holoking) parts.push('Holoking');
+    if (ca.holocloak) parts.push('HoloCloak');
+
+    return parts.length > 0 ? parts.join(' | ') : ca.id || 'Card';
 }
 
 function drawGameOverUI() {
