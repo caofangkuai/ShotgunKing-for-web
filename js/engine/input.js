@@ -10,6 +10,7 @@ const Input = {
     _lastClickY: 0,
     _dclickThreshold: 300,
     _dclickDist: 20,
+    _mouseWasReleased: true,
     
     init() {
         const canvas = Sugar.canvas;
@@ -49,6 +50,9 @@ const Input = {
         if (e.button === 0) {
             this.mouse.down = true;
             this.mouse.pressed = true;
+            // Track that mouse was released before this click (for distinguishing fresh clicks)
+            this.mouse.freshClick = this._mouseWasReleased;
+            this._mouseWasReleased = false;
             // Double-click detection
             const now = Date.now();
             const dx = pos.x - this._lastClickX;
@@ -73,6 +77,7 @@ const Input = {
         if (e.button === 0) {
             this.mouse.down = false;
             this.mouse.released = true;
+            this._mouseWasReleased = true;
         } else if (e.button === 2) {
             this.mouse.rightDown = false;
         }

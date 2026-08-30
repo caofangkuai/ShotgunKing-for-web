@@ -394,11 +394,6 @@ function updateHeroAim() {
 function handleGameInput() {
     if (!hero || hero.dead || hero.inMove) return;
 
-    // Clear justMoved flag from previous frame
-    if (justMoved) {
-        justMoved = false;
-    }
-
     // Pause
     if (btnp('pause')) {
         if (pause) {
@@ -453,20 +448,19 @@ function handleMoveInput() {
         gameState.hoveredPiece = sq.p;
     }
     
-    // Double-click on enemy to aim and shoot at it
+    // Double-click on enemy to aim and shoot at it (only in move mode)
     if (Input.mouse.dclick && sq && sq.p && sq.p.bad && !sq.p.inert) {
         aimAndFireAt(sq);
         return;
     }
     
-    // Single-click on highlighted square to move only (no attack)
-    if (Input.mouse.pressed && !justMoved) {
+    // Single-click on highlighted empty square to move only (no attack)
+    if (Input.mouse.pressed) {
         if (sq && sq.highlight && !sq.p) {
             // Move hero to this square (only if empty)
             moveHero(sq, function() {
                 ctrlMode = 'aim';
                 showShootRange();
-                justMoved = true;
             });
             return;
         }
@@ -506,8 +500,8 @@ function aimAndFireAt(targetSq) {
     ctrlMode = 'aim';
     showShootRange();
     
-    // Auto-fire at target after short delay
-    wait(5, function() {
+    // Fire at target after short delay
+    wait(8, function() {
         if (chamber > 0) {
             fire();
             if (chamber <= 0) {
@@ -557,9 +551,9 @@ function bladeAttack(target, cb) {
 }
 
 function handleAimInput() {
-    // Click to shoot - use mouse.down (not pressed) to avoid firing on the same frame as move
-    // Only fire if mouse was newly pressed this frame (not held from move click)
-    if (Input.mouse.pressed && chamber > 0 && !justMoved) {
+    // Only fire on a fresh click (mouse was released before this press)
+    // Input.mouse.freshClick is true only if mouse was released since last click
+    if (Input.mouse.pressed && Input.mouse.freshClick && chamber > 0) {
         fire();
         // After shooting, can shoot again if chamber > 0, or end turn
         if (chamber <= 0) {
@@ -567,7 +561,7 @@ function handleAimInput() {
         }
     }
 
-    // Space to shoot
+    // Space/Enter to shoot
     if (btnp('validate') && chamber > 0) {
         fire();
         if (chamber <= 0) {
