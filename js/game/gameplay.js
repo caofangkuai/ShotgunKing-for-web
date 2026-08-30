@@ -2158,14 +2158,17 @@ function drawLevelUpUI() {
         }
     }
 
-    const cardW = 48;
-    const cardH = 56;
-    const gap = 12;
-    const startY = 18;
+    const cardW = 56;
+    const cardH = 64;
+    const gap = 8;
+    const startY = 20;
 
     // Column headers
-    lprint(lang.player_cards || 'YOUR CARDS', 60, startY + 2, 7, 1);
-    lprint(lang.enemy_cards || 'ENEMY CARDS', MCW - 60, startY + 2, 7, 1);
+    lprint(lang.player_cards || 'YOUR CARDS', 64, startY + 2, 7, 1);
+    lprint(lang.enemy_cards || 'ENEMY CARDS', MCW - 64, startY + 2, 7, 1);
+
+    // Set spritesheet for card images
+    spritesheet('cards');
 
     // Draw player cards (left column)
     for (let i = 0; i < playerCards.length; i++) {
@@ -2197,6 +2200,8 @@ function drawLevelUpUI() {
 
     // Instructions at very bottom
     lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 4, 6, 1);
+
+    spritesheet('gfx');
 }
 
 function drawCardSlot(ca, x, y, cardW, cardH, idx) {
@@ -2210,7 +2215,8 @@ function drawCardSlot(ca, x, y, cardW, cardH, idx) {
     if (ca.gid !== undefined) {
         const sx = (ca.gid % 16) * 16;
         const sy = Math.floor(ca.gid / 16) * 16;
-        sspr(sx, sy, 16, 16, x + (cardW - 24) / 2, y + 4, 24, 24);
+        // Draw card image larger (32x24) to fill the card
+        sspr(sx, sy, 16, 16, x + 4, y + 4, 32, 24);
     }
 
     // Card name
@@ -2220,7 +2226,7 @@ function drawCardSlot(ca, x, y, cardW, cardH, idx) {
     // Show card effect summary
     const effect = getCardEffectText(ca);
     if (effect) {
-        smallPrint(effect, x + cardW / 2, y + 42, 6, 1);
+        smallPrint(effect, x + cardW / 2, y + 44, 6, 1);
     }
 
     // Hover/select highlight

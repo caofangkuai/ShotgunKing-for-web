@@ -277,18 +277,23 @@ function _update() {
     // Update game state
     if (ingame && !pause) {
         t++;
-        
+
         // Handle gameplay input
         if (playing && timerun) {
             handleGameInput();
         }
-        
+
+        // Handle level up card selection input (always check when active)
+        if (leveling && leveling.choices) {
+            handleLevelUpInput();
+        }
+
         // Update hero aim
         updateHeroAim();
-        
+
         // Process fade
         Sugar.updateFade();
-        
+
         // Screen shake decay
         if (screenShake > 0) {
             screenShake = Math.max(0, screenShake - 0.5);
@@ -476,11 +481,11 @@ function handleMoveInput() {
         gameState.hoveredPiece = sq.p;
     }
 
-    // Single-click on highlighted empty square to move (stay in move mode)
+    // Single-click on highlighted empty square to move (ends turn)
     if (Input.mouse.pressed) {
         if (sq && sq.highlight && !sq.p) {
             moveHero(sq, function() {
-                showValidMoves();
+                endPlayerTurn();
             });
             return;
         }
@@ -491,7 +496,7 @@ function handleMoveInput() {
             showShootRange();
         }
     }
-    
+
     // Keyboard movement
     if (btnp('up') || btnp('down') || btnp('left') || btnp('right')) {
         let dx = 0, dy = 0;
@@ -499,11 +504,11 @@ function handleMoveInput() {
         if (btnp('right')) dx = 1;
         if (btnp('up')) dy = -1;
         if (btnp('down')) dy = 1;
-        
+
         const nsq = gsq(hero.sq.px + dx, hero.sq.py + dy);
         if (nsq && nsq.highlight && !nsq.p) {
             moveHero(nsq, function() {
-                showValidMoves();
+                endPlayerTurn();
             });
         }
     }
@@ -620,10 +625,10 @@ function handleLevelUpInput() {
     if (!leveling || !leveling.choices) return;
 
     const choices = leveling.choices;
-    const cardW = 48;
-    const cardH = 56;
-    const gap = 12;
-    const startY = 22;
+    const cardW = 56;
+    const cardH = 64;
+    const gap = 8;
+    const startY = 20;
 
     // Build layout info for hover detection
     const playerCards = [];
@@ -640,7 +645,7 @@ function handleLevelUpInput() {
     for (let i = 0; i < playerCards.length; i++) {
         const idx = playerCards[i];
         const x = 36;
-        const y = startY + 8 + i * (cardH + gap);
+        const y = startY + 10 + i * (cardH + gap);
         if (Input.mouseInRect(x, y, cardW, cardH)) {
             leveling.hoverIdx = idx;
             break;
@@ -652,7 +657,7 @@ function handleLevelUpInput() {
         for (let i = 0; i < enemyCards.length; i++) {
             const idx = enemyCards[i];
             const x = MCW - 36 - cardW;
-            const y = startY + 8 + i * (cardH + gap);
+            const y = startY + 10 + i * (cardH + gap);
             if (Input.mouseInRect(x, y, cardW, cardH)) {
                 leveling.hoverIdx = idx;
                 break;
@@ -660,9 +665,10 @@ function handleLevelUpInput() {
         }
     }
 
-    // Single click to view details (updates hoverIdx which triggers description)
+    // Single click to select card
     if (Input.mouse.pressed && leveling.hoverIdx >= 0) {
-        // Hover already updated, description will be shown automatically
+        selectLevelUpCard(leveling.hoverIdx);
+        return;
     }
 
     // Double-click to select
