@@ -1239,14 +1239,22 @@ function showWinScreen(nxt) {
 
 function levelUp(data, nxt) {
     leveling = true;
-    
-    // Pick cards for selection
+
+    // Pick cards for selection: mix of player (team 1) and enemy (team 0) cards
     const choices = [];
-    for (let i = 0; i < 3; i++) {
-        const card = pickCard();
+
+    // Pick 1-2 player cards
+    for (let i = 0; i < 2; i++) {
+        const card = pickCard(1);
         if (card) choices.push(card);
     }
-    
+
+    // Pick 1-2 enemy cards
+    for (let i = 0; i < 2; i++) {
+        const card = pickCard(0);
+        if (card) choices.push(card);
+    }
+
     // Show card selection UI
     showCardSelection(choices, function(selectedCard) {
         if (selectedCard) {
@@ -1257,24 +1265,27 @@ function levelUp(data, nxt) {
     });
 }
 
-function pickCard() {
-    // Pick a random card from the pool
+function pickCard(team) {
+    // Pick a random card from the pool, filtered by team
     if (!cards.pool || cards.pool.length === 0) {
         // Build pool from all cards
         cards.pool = CARDS.filter(c => !c.need && !c.need_card && !c.need_tag);
     }
-    
-    if (cards.pool.length === 0) return null;
-    const idx = irnd(cards.pool.length);
-    const card = cards.pool[idx];
-    
+
+    // Filter by team: team 1 = player (white cards), team 0 = enemy (black cards)
+    const teamPool = cards.pool.filter(c => (c.team || 0) === team);
+    if (teamPool.length === 0) return null;
+
+    const poolCard = teamPool[irnd(teamPool.length)];
+    const idx = cards.pool.indexOf(poolCard);
+
     // Remove from pool if no more copies
-    card.n = (card.n || 1) - 1;
-    if (card.n <= 0) {
+    poolCard.n = (poolCard.n || 1) - 1;
+    if (poolCard.n <= 0) {
         cards.pool.splice(idx, 1);
     }
-    
-    return { ...card };
+
+    return { ...poolCard };
 }
 
 function newCard(cid) {
@@ -1971,67 +1982,98 @@ function drawCardsPanel() {
 
 function drawLevelUpUI() {
     if (!leveling || !leveling.choices) return;
-    
+
     // Darken background
     rectfill(0, 0, MCW, MCH, 0);
-    
+
     // Title
     lprint(lang.level_up || 'LEVEL UP!', MCW / 2, 6, 5, 1);
-    
-    // Card choices
+
+    // Split choices by team
+    const playerCards = [];
+    const enemyCards = [];
     const choices = leveling.choices;
-    const cardW = 48;
-    const cardH = 56;
-    const gap = 16;
-    const totalW = choices.length * (cardW + gap) - gap;
-    const startX = (MCW - totalW) / 2;
-    const startY = MCH / 2 - cardH / 2 - 10;
-    
     for (let i = 0; i < choices.length; i++) {
         const ca = choices[i];
-        const x = startX + i * (cardW + gap);
-        const y = startY;
-        
-        // Card background
-        const team = ca.team || 0;
-        rectfill(x, y, x + cardW, y + cardH, team === 1 ? 12 : 1);
-        rect(x, y, x + cardW, y + cardH, 0);
-        
-        // Draw card image from cards spritesheet using gid
-        if (ca.gid !== undefined) {
-            const sx = (ca.gid % 16) * 16;
-            const sy = Math.floor(ca.gid / 16) * 16;
-            sspr(sx, sy, 16, 16, x + (cardW - 24) / 2, y + 4, 24, 24);
-        }
-        
-        // Card name
-        const name = ca.id || ca.name || '';
-        smallPrint(name, x + cardW / 2, y + 32, 7, 1);
-        
-        // Show card effect summary
-        const effect = getCardEffectText(ca);
-        if (effect) {
-            smallPrint(effect, x + cardW / 2, y + 42, 6, 1);
-        }
-        
-        // Show full description for hovered card
-        if (leveling.hoverIdx === i && ca.desc) {
-            rectfill(4, y + cardH + 4, MCW - 4, y + cardH + 24, 1);
-            rect(4, y + cardH + 4, MCW - 4, y + cardH + 24, 5);
-            pprint(ca.desc, MCW / 2, y + cardH + 8, MCW - 16, 7, 1);
-        }
-        
-        // Hover/select highlight
-        if (leveling.hoverIdx === i) {
-            rect(x - 2, y - 2, x + cardW + 2, y + cardH + 2, 8);
-            rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 11);
-        } else if (Input.mouseInRect(x, y, cardW, cardH)) {
-            rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 8);
+        if (ca.team === 1) {
+            playerCards.push({ card: ca, idx: i });
+        } else {
+            enemyCards.push({ card: ca, idx: i });
         }
     }
-    
+
+    const cardW = 48;
+    const cardH = 56;
+    const gap = 12;
+    const colGap = 40;
+    const startY = 22;
+
+    // Column headers
+    lprint(lang.player_cards || 'PLAYER', 60, startY - 2, 7, 1);
+    lprint(lang.enemy_cards || 'ENEMY', MCW - 60, startY - 2, 7, 1);
+
+    // Draw player cards (left column)
+    for (let i = 0; i < playerCards.length; i++) {
+        const { card: ca, idx } = playerCards[i];
+        const x = 36;
+        const y = startY + 8 + i * (cardH + gap);
+        drawCardSlot(ca, x, y, cardW, cardH, idx);
+    }
+
+    // Draw enemy cards (right column)
+    for (let i = 0; i < enemyCards.length; i++) {
+        const { card: ca, idx } = enemyCards[i];
+        const x = MCW - 36 - cardW;
+        const y = startY + 8 + i * (cardH + gap);
+        drawCardSlot(ca, x, y, cardW, cardH, idx);
+    }
+
+    // Show description for hovered card at bottom
+    if (leveling.hoverIdx >= 0 && choices[leveling.hoverIdx]) {
+        const ca = choices[leveling.hoverIdx];
+        const desc = ca.desc || getCardEffectText(ca);
+        if (desc) {
+            rectfill(4, MCH - 28, MCW - 4, MCH - 4, 1);
+            rect(4, MCH - 28, MCW - 4, MCH - 4, 5);
+            pprint(desc, MCW / 2, MCH - 24, MCW - 16, 7, 1);
+        }
+    }
+
     // Instructions
-    lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 10, 6, 1);
+    lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 32, 6, 1);
+}
+
+function drawCardSlot(ca, x, y, cardW, cardH, idx) {
+    const team = ca.team || 0;
+
+    // Card background
+    rectfill(x, y, x + cardW, y + cardH, team === 1 ? 12 : 1);
+    rect(x, y, x + cardW, y + cardH, 0);
+
+    // Draw card image from cards spritesheet using gid
+    if (ca.gid !== undefined) {
+        const sx = (ca.gid % 16) * 16;
+        const sy = Math.floor(ca.gid / 16) * 16;
+        sspr(sx, sy, 16, 16, x + (cardW - 24) / 2, y + 4, 24, 24);
+    }
+
+    // Card name
+    const name = ca.id || ca.name || '';
+    smallPrint(name, x + cardW / 2, y + 32, 7, 1);
+
+    // Show card effect summary
+    const effect = getCardEffectText(ca);
+    if (effect) {
+        smallPrint(effect, x + cardW / 2, y + 42, 6, 1);
+    }
+
+    // Hover/select highlight
+    if (leveling.hoverIdx === idx) {
+        rect(x - 2, y - 2, x + cardW + 2, y + cardH + 2, 8);
+        rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 11);
+    } else if (Input.mouseInRect(x, y, cardW, cardH)) {
+        rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 8);
+    }
 }
 
 function getCardEffectText(ca) {

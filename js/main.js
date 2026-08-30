@@ -618,31 +618,59 @@ function handleAimInput() {
 
 function handleLevelUpInput() {
     if (!leveling || !leveling.choices) return;
-    
+
     const choices = leveling.choices;
     const cardW = 48;
     const cardH = 56;
-    const gap = 16;
-    const totalW = choices.length * (cardW + gap) - gap;
-    const startX = (MCW - totalW) / 2;
-    const startY = MCH / 2 - cardH / 2 - 10;
-    
+    const gap = 12;
+    const startY = 22;
+
+    // Build layout info for hover detection
+    const playerCards = [];
+    const enemyCards = [];
+    for (let i = 0; i < choices.length; i++) {
+        if (choices[i].team === 1) playerCards.push(i);
+        else enemyCards.push(i);
+    }
+
     // Track hover index for description display
     leveling.hoverIdx = -1;
-    for (let i = 0; i < choices.length; i++) {
-        const x = startX + i * (cardW + gap);
-        if (Input.mouseInRect(x, startY, cardW, cardH)) {
-            leveling.hoverIdx = i;
+
+    // Check player cards (left column)
+    for (let i = 0; i < playerCards.length; i++) {
+        const idx = playerCards[i];
+        const x = 36;
+        const y = startY + 8 + i * (cardH + gap);
+        if (Input.mouseInRect(x, y, cardW, cardH)) {
+            leveling.hoverIdx = idx;
             break;
         }
     }
-    
+
+    // Check enemy cards (right column)
+    if (leveling.hoverIdx < 0) {
+        for (let i = 0; i < enemyCards.length; i++) {
+            const idx = enemyCards[i];
+            const x = MCW - 36 - cardW;
+            const y = startY + 8 + i * (cardH + gap);
+            if (Input.mouseInRect(x, y, cardW, cardH)) {
+                leveling.hoverIdx = idx;
+                break;
+            }
+        }
+    }
+
+    // Single click to view details (updates hoverIdx which triggers description)
+    if (Input.mouse.pressed && leveling.hoverIdx >= 0) {
+        // Hover already updated, description will be shown automatically
+    }
+
     // Double-click to select
     if (Input.mouse.dclick && leveling.hoverIdx >= 0) {
         selectLevelUpCard(leveling.hoverIdx);
         return;
     }
-    
+
     // Keyboard selection (number keys 1-9)
     for (let k = 1; k <= 9 && k <= choices.length; k++) {
         if (Input.keysPressed[String(k)]) {
@@ -650,7 +678,7 @@ function handleLevelUpInput() {
             return;
         }
     }
-    
+
     // Enter/Space to select hovered card
     if (btnp('validate') && leveling.hoverIdx >= 0) {
         selectLevelUpCard(leveling.hoverIdx);

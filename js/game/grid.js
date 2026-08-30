@@ -2,96 +2,92 @@
 
 function mkGrid() {
     const grid = {
-        pos: {}, // piece -> square mapping
+        pos: new Map(), // piece -> square mapping
         score: 0,
         dangers: {},
         bonus: 0,
         sq: null,
         act: null,
     };
-    
+
     // Initialize from current board state
     for (const sq of squares) {
         if (sq.p) {
-            grid.pos[sq.p] = sq;
+            grid.pos.set(sq.p, sq);
         }
     }
-    
+
     grid.mov = function(p, tsq) {
-        grid.pos[p] = tsq;
+        grid.pos.set(p, tsq);
     };
-    
+
     grid.push = function(p, di) {
-        if (!p || !grid.pos[p]) return 0;
-        const nsq = dsq(grid.pos[p], di);
+        if (!p || !grid.pos.has(p)) return 0;
+        const nsq = dsq(grid.pos.get(p), di);
         const np = grid.pieceAt(nsq);
         if (np && np !== hero && (np.big || np.type === leader)) return -100;
         let pushed = np ? 1 : 0;
         pushed += grid.push(np, di);
-        grid.pos[p] = nsq;
+        grid.pos.set(p, nsq);
         return pushed;
     };
-    
+
     grid.pieceAt = function(sq) {
         if (!sq) return null;
-        for (const k in grid.pos) {
-            if (grid.pos[k] === sq) return k;
-            if (k.big) {
-                const a = getPieceSquares(k);
+        for (const [p, psq] of grid.pos) {
+            if (psq === sq) return p;
+            if (p.big) {
+                const a = getPieceSquares(p);
                 for (const bsq of a) {
-                    if (bsq === sq) return k;
+                    if (bsq === sq) return p;
                 }
             }
         }
         return null;
     };
-    
+
     return grid;
 }
 
 function paintDanger(grid) {
     // Reset danger
     for (const sq of squares) sq.dan = 0;
-    
+
     // Paint danger from bad pieces
-    for (const p in grid.pos) {
-        const piece = p; // piece object
+    for (const [piece, sq] of grid.pos) {
         if (piece.bad) {
             const osq = piece.sq;
-            piece.sq = grid.pos[piece];
+            piece.sq = sq;
             const a = getRange(piece, "atk", null, true);
             piece.sq = osq;
-            for (const sq of a) sq.dan = (sq.dan || 0) + 1;
+            for (const dsq of a) dsq.dan = (dsq.dan || 0) + 1;
         }
     }
 }
 
 function scoreGrid(grid, from) {
     grid.score = grid.bonus || 0;
-    
+
     const sco = (n) => { grid.score += n; };
-    
+
     // Save and modify squares
     for (const sq of squares) sq.op = sq.p;
-    for (const p in grid.pos) {
-        grid.pos[p].p = p;
+    for (const [piece, sq] of grid.pos) {
+        sq.p = piece;
     }
-    
+
     // Reset danger
     for (const sq of squares) sq.dan = 0;
-    
+
     const hsq = getHeroSq();
     const hsd = pside(hsq);
-    
+
     // Evaluate each piece
-    for (const p in grid.pos) {
-        const piece = p;
-        const sq = grid.pos[piece];
-        
+    for (const [piece, sq] of grid.pos) {
         // Army sum
         const pdan = piece.danger || 0;
         sco(pdan);
-        
+
         // Promotion evaluation
         if (piece.promote) {
             if (sq.py === 7) {
@@ -100,7 +96,7 @@ function scoreGrid(grid, from) {
                 sco(sq.py * (piece.type === 0 ? 1 : 2) / 8);
             }
         }
-        
+
         // Paint danger
         if (piece.bad) {
             const osq = piece.sq;
@@ -109,7 +105,7 @@ function scoreGrid(grid, from) {
             piece.sq = osq;
             for (const dsq of a) dsq.dan = (dsq.dan || 0) + 1;
         }
-        
+
         // Moat
         if (stack.moat && !stack.bridge && !piece.flying && piece.type !== 1) {
             const psd = pside(sq);
@@ -117,7 +113,7 @@ function scoreGrid(grid, from) {
                 sco(-pdan);
             }
         }
-        
+
         // POV evaluation
         if (from === piece) {
             // Fear
@@ -125,7 +121,7 @@ function scoreGrid(grid, from) {
             // Guard
             if (piece.jester && stack.jester_guard) sco(-(sq.gdist || 0) * 2);
         }
-        
+
         // Cover
         if (piece.type === leader) {
             const a = bres2(hsq.px, hsq.py, sq.px, sq.py);
@@ -137,30 +133,30 @@ function scoreGrid(grid, from) {
                 }
             }
         }
-        
+
         // Seek
         if (piece.dgr) {
             sco(-Math.min(piece.dgr[sq], 6) / 8);
         }
-        
+
         // Diagonal near target
         sco(1 / (sq.ddist + 20));
-        
+
         // Inquisition
         if (sq.waypoint && piece.investigate) {
             sco(2);
         }
-        
+
         // Doubt (disguise)
         if (piece.type === leader && hero.cloaked && hero.disguised) {
             sco(sq.doubt_dist || 0);
         }
     }
-    
+
     // Check hero target
     const h = getHeroTrg();
-    if (!grid.pos[h] && !h.cloaked) sco(2000);
-    
+    if (!grid.pos.has(h) && !h.cloaked) sco(2000);
+
     // Scan all squares for danger
     if (!hero.cloaked || hero.holoking) {
         const ai_lvl = stack.ai_lvl || 0;
@@ -179,13 +175,13 @@ function scoreGrid(grid, from) {
             }
         }
     }
-    
+
     // Store dangers
     grid.dangers = {};
     for (const sq of squares) {
         grid.dangers[sq] = sq.dan;
     }
-    
+
     // Restore squares
     for (const sq of squares) sq.p = sq.op;
 }
