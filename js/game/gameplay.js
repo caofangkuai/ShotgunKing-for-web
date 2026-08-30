@@ -1646,22 +1646,25 @@ function drawUI() {
 function drawAimVisualization() {
     if (!hero || !hero.sq) return;
 
-    const heroX = hero.x + 8;
-    const heroY = hero.y + 8;
+    // Center on hero piece, accounting for camera offset
+    const camX = Sugar.camX;
+    const camY = Sugar.camY;
+    const heroX = hero.x + SQ / 2 + camX;
+    const heroY = hero.y + SQ / 2 + camY;
     // Convert PICO-8 angle to radians (0=right, 0.25=down in PICO-8)
     const aimRad = hero.an * Math.PI * 2;
     const range = getFirerange() * SQ;
     const spreadRad = (getSpread() / 360) * Math.PI * 2;
 
+    // Board bounds (with camera offset)
+    const minX = board.x + camX;
+    const maxX = board.x + 8 * SQ + camX;
+    const minY = board.y + camY;
+    const maxY = board.y + 8 * SQ + camY;
+
     // Calculate end point, clamped to board boundaries
     let endX = heroX + Math.cos(aimRad) * range;
     let endY = heroY - Math.sin(aimRad) * range; // invert Y for PICO-8 coords
-
-    // Clamp to board bounds
-    const minX = board.x;
-    const maxX = board.x + 8 * SQ;
-    const minY = board.y;
-    const maxY = board.y + 8 * SQ;
     endX = Math.max(minX, Math.min(maxX, endX));
     endY = Math.max(minY, Math.min(maxY, endY));
 
@@ -1723,6 +1726,9 @@ function drawAimVisualization() {
 function drawHoverInfo(sq, piece) {
     if (!sq || !piece) return;
 
+    // Don't show info for the player's own hero
+    if (piece === hero) return;
+
     const infoX = 2;
     const infoY = MCH - 36;
     const infoW = MCW - 4;
@@ -1781,16 +1787,18 @@ function getPieceAttackRange(piece) {
     return maxRange;
 }
 
-// Draw semi-transparent filled rectangle
+// Draw semi-transparent filled rectangle (in board coords, with camera offset)
 function fillTransparent(x, y, w, h, color, alpha) {
     const ctx = Sugar.ctx;
     const os = Sugar.overlayScale;
+    const camX = Sugar.camX;
+    const camY = Sugar.camY;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = Sugar.getColor(color);
     ctx.fillRect(
-        Math.floor(x * os),
-        Math.floor(y * os),
+        Math.floor((x + camX) * os),
+        Math.floor((y + camY) * os),
         Math.ceil(w * os),
         Math.ceil(h * os)
     );
