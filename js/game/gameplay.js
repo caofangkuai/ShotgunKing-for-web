@@ -54,6 +54,41 @@ let justMoved = false; // prevent firing on same frame as move
 let eventQueue = [];
 let executions = [];
 
+// === LOADING SCREEN ===
+function showLoadingScreen(callback) {
+    // Set draw function to show loading screen
+    mdr = function() {
+        cls(0);
+        const barW = 160;
+        const barH = 10;
+        const barX = (MCW - barW) / 2;
+        const barY = MCH / 2;
+        // Label
+        const label = lang.loading || 'LOADING...';
+        const txtW = txtwidth(label);
+        lprint(label, (MCW - txtW) / 2, barY - 16, 7);
+        // Animated spinner
+        const spinnerX = MCW / 2;
+        const spinnerY = barY + barH + 16;
+        const angle = Date.now() / 200;
+        for (let i = 0; i < 8; i++) {
+            const a = angle + (i / 8) * Math.PI * 2;
+            const r = 8;
+            const x = spinnerX + Math.cos(a) * r;
+            const y = spinnerY + Math.sin(a) * r;
+            const alpha = 0.3 + 0.7 * ((i / 8));
+            const ctx = Sugar.ctx;
+            ctx.fillStyle = `rgba(0, 228, 54, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    };
+
+    // Run callback after a short delay to let the loading screen render
+    wait(10, callback);
+}
+
 // === INIT GAME ===
 function initGame() {
     Entity.reset();

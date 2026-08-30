@@ -60,6 +60,12 @@ const Sugar = {
     fontSize: 8,
     fontLineHeight: 8,
     fontDy: 0,
+
+    // HD Text Overlay
+    overlayScale: 2,
+    overlaySurface: null,
+    overlayCtx: null,
+    overlayEnabled: true,
     
     // Time
     time: 0,
@@ -77,13 +83,21 @@ const Sugar = {
     
     init() {
         this.canvas = document.getElementById('game-canvas');
-        this.ctx = this.canvas.getContext('2d', { alpha: false });
+        this.ctx = this.canvas.getContext('2d', { alpha: true });
         this.canvas.width = this.width;
         this.canvas.height = this.height;
+
+        // Create HD text overlay surface (2x resolution)
+        this.overlaySurface = document.createElement('canvas');
+        this.overlaySurface.width = this.width * this.overlayScale;
+        this.overlaySurface.height = this.height * this.overlayScale;
+        this.overlayCtx = this.overlaySurface.getContext('2d');
+        this.overlayCtx.imageSmoothingEnabled = false;
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 100));
-        
+
         this.ctx.imageSmoothingEnabled = false;
     },
     
@@ -609,7 +623,7 @@ const Sugar = {
         return `${fontSize}px "${fontName}"`;
     },
     
-    // Text width
+    // Text width (in game coordinates, not overlay pixels)
     txtwidth(str) {
         if (str === undefined || str === null) return 0;
         str = String(str);
@@ -618,50 +632,55 @@ const Sugar = {
         if (f.type === 'bitmap') {
             return str.length * (f.charW || 4);
         }
-        // TTF font - use canvas to measure with the same font string as lprint
-        const ctx = this.getTargetCtx();
-        ctx.font = this._getCanvasFont();
+        // TTF font - measure at overlay scale then convert back
+        const fontSize = (f.sz || 8) * this.overlayScale;
+        const ctx = this.overlayCtx;
+        const savedFont = ctx.font;
+        ctx.font = `${fontSize}px "${f.name || this.currentFont}"`;
         ctx.textAlign = 'left';
-        return Math.ceil(ctx.measureText(str).width);
+        const w = Math.ceil(ctx.measureText(str).width / this.overlayScale);
+        ctx.font = savedFont;
+        return w;
     },
     
-    // Print single line - always uses canvas fillText
-    // Browser handles font fallback automatically (including CJK glyphs)
+    // Print single line - renders on HD overlay surface for crisp text
     lprint(str, x, y, c, align, outline) {
         if (c === undefined) c = this._color;
         if (str === undefined || str === null) return x;
         str = String(str);
-        const ctx = this.getTargetCtx();
         const f = this.fonts[this.currentFont];
         const dy = (f && f.dy) || 0;
-        
+
         let rx = x;
         if (align === 1) { // center
             rx = x - this.txtwidth(str) / 2;
         } else if (align === 2) { // right
             rx = x - this.txtwidth(str);
         }
-        
-        rx = Math.floor(rx);
-        const ty = Math.floor(y + this.camY);
-        const tx = Math.floor(rx + this.camX);
-        
-        ctx.font = this._getCanvasFont();
+
+        // Render on overlay surface at 2x resolution
+        const ctx = this.overlayCtx;
+        const os = this.overlayScale;
+        const ox = Math.floor(rx * os - (os - 1) * this.camX);
+        const oy = Math.floor(y * os - (os - 1) * this.camY + dy * os);
+
+        const fontSize = (f && f.sz || 8) * os;
+        ctx.font = `${fontSize}px "${f ? f.name : this.currentFont}"`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
-        
+
         if (outline !== undefined && outline !== null) {
             ctx.fillStyle = this.getColor(outline);
             for (let dx = -1; dx <= 1; dx++) {
                 for (let dy2 = -1; dy2 <= 1; dy2++) {
                     if (dx === 0 && dy2 === 0) continue;
-                    ctx.fillText(str, tx + dx, ty + dy2 + dy);
+                    ctx.fillText(str, ox + dx * os, oy + dy2 * os);
                 }
             }
         }
-        
+
         ctx.fillStyle = this.getColor(c);
-        ctx.fillText(str, tx, ty + dy);
+        ctx.fillText(str, ox, oy);
         
         return rx;
     },
@@ -755,14 +774,12 @@ const Sugar = {
         this.lprint(str, x, y, c, align);
     },
 
-    // smallPrint - render text using canvas fillText with a reliable font
+    // smallPrint - render text on HD overlay for crisp display
     // Used for button labels and UI elements that need compact text
     smallPrint(str, x, y, c, align) {
         if (c === undefined) c = 7;
         str = String(str);
-        const ctx = this.getTargetCtx();
 
-        // Use a fixed readable size that fits in buttons
         const fontSize = 8;
         const fontName = 'monospace';
 
@@ -773,27 +790,29 @@ const Sugar = {
             rx = x - this.txtwidthSmall(str, fontSize);
         }
 
-        rx = Math.floor(rx);
-        const ty = Math.floor(y + this.camY);
-        const tx = Math.floor(rx + this.camX);
+        // Render on overlay surface at 2x resolution
+        const ctx = this.overlayCtx;
+        const os = this.overlayScale;
+        const ox = Math.floor(rx * os - (os - 1) * this.camX);
+        const oy = Math.floor(y * os - (os - 1) * this.camY);
 
         const savedFont = ctx.font;
-        ctx.font = `${fontSize}px ${fontName}`;
+        ctx.font = `${fontSize * os}px ${fontName}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillStyle = this.getColor(c);
-        ctx.fillText(str, tx, ty);
+        ctx.fillText(str, ox, oy);
         ctx.font = savedFont;
 
         return rx;
     },
 
-    // Measure text width at small font size
+    // Measure text width at small font size (in game coordinates)
     txtwidthSmall(str, sz) {
-        const ctx = this.getTargetCtx();
+        const ctx = this.overlayCtx;
         const savedFont = ctx.font;
-        ctx.font = `${sz || 8}px monospace`;
-        const w = ctx.measureText(str).width;
+        ctx.font = `${(sz || 8) * this.overlayScale}px monospace`;
+        const w = Math.ceil(ctx.measureText(str).width / this.overlayScale);
         ctx.font = savedFont;
         return w;
     },
@@ -908,6 +927,22 @@ const Sugar = {
     present() {
         // Draw fade overlay
         this.drawFade();
+        // Draw HD text overlay onto main canvas
+        this.drawOverlay();
+    },
+
+    // Clear the HD text overlay (call at start of frame)
+    clearOverlay() {
+        if (this.overlaySurface) {
+            this.overlayCtx.clearRect(0, 0, this.overlaySurface.width, this.overlaySurface.height);
+        }
+    },
+
+    // Draw HD text overlay onto main canvas (call at end of frame)
+    drawOverlay() {
+        if (this.overlaySurface && this.overlayCtx) {
+            this.ctx.drawImage(this.overlaySurface, 0, 0, this.width, this.height);
+        }
     },
     
     // === FPS ===

@@ -305,6 +305,9 @@ function _update() {
 }
 
 function _draw() {
+    // Clear HD text overlay at start of each frame
+    Sugar.clearOverlay();
+
     // Early loading screen - no font dependency (for mobile compatibility)
     if (loadingPhase === 'init' || loadingPhase === 'fonts') {
         cls(0);

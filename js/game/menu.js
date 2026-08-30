@@ -164,7 +164,7 @@ function openMenu(a, type) {
     menuSelIndex = 0;
     
     if (!a) {
-        a = ['play', 'options', 'quit'];
+        a = ['play', 'options', 'codex', 'credits', 'quit'];
     }
     
     var ma = 8;
@@ -360,6 +360,16 @@ function actMenu(id) {
             closeMenu();
             menuState = 'options';
             initOptions();
+            break;
+        case 'codex':
+            closeMenu();
+            menuState = 'codex';
+            initCodex();
+            break;
+        case 'credits':
+            closeMenu();
+            menuState = 'credits';
+            initCredits();
             break;
         case 'quit':
             closeMenu();
@@ -984,6 +994,115 @@ function importSaveData() {
         reader.readAsText(file);
     };
     input.click();
+}
+
+// === CODEX ===
+function initCodex() {
+    reset();
+    menuList = [];
+    fadeTo(0, 20);
+
+    var bg = mke(0, 0, 0);
+    bg.dp = DP_BG;
+    bg.dr = function() {
+        rectfill(0, 0, MCW, MCH, 0);
+        // Title
+        lprint(lang.codex || 'CODEX', MCW / 2, 8, 7, 1);
+
+        // Stats
+        var stats = [
+            (lang.games_played || 'Games:') + ' ' + (Save.data.stats.games || 0),
+            (lang.wins || 'Wins:') + ' ' + (Save.data.stats.wins || 0),
+            (lang.best_rank || 'Best Rank:') + ' ' + (Save.data.stats.bestRank || 1),
+        ];
+        var cy = 30;
+        for (var i = 0; i < stats.length; i++) {
+            lprint(stats[i], 10, cy, 6);
+            cy += 10;
+        }
+
+        // Controls help
+        cy += 10;
+        lprint(lang.controls || 'CONTROLS', MCW / 2, cy, 7, 1);
+        cy += 12;
+        var controls = [
+            'WASD/Arrows: Move',
+            'Mouse: Aim & Shoot',
+            'R: Reload',
+            'ESC: Pause',
+        ];
+        for (var i = 0; i < controls.length; i++) {
+            lprint(controls[i], 10, cy, 5);
+            cy += 8;
+        }
+
+        lprint(lang.press_any_key || 'Click to go back', MCW / 2, MCH - 12, 3, 1);
+    };
+    menuList.push(bg);
+
+    var input = mke(0, 0, 0);
+    input.dp = DP_TOP;
+    input.upd = function() {
+        if (Input.mouse.pressed || btnp('validate') || btnp('cancel')) {
+            sfx('menu_out');
+            closeMenu();
+            menuState = 'title';
+            initMenu();
+        }
+    };
+    menuList.push(input);
+
+    mdr = drawMenu;
+}
+
+// === CREDITS ===
+function initCredits() {
+    reset();
+    menuList = [];
+    fadeTo(0, 20);
+
+    var bg = mke(0, 0, 0);
+    bg.dp = DP_BG;
+    bg.dr = function() {
+        rectfill(0, 0, MCW, MCH, 0);
+        // Title
+        lprint(lang.credits || 'CREDITS', MCW / 2, 8, 7, 1);
+
+        var cy = 30;
+        var lines = [
+            { text: 'Shotgun King', color: 7 },
+            { text: 'The Final Checkmate', color: 6 },
+            { text: '', color: 6 },
+            { text: 'Original Game', color: 5 },
+            { text: 'by PUNKCAKE', color: 4 },
+            { text: '', color: 6 },
+            { text: 'Web Edition', color: 5 },
+            { text: 'Fan-made port', color: 4 },
+            { text: '', color: 6 },
+            { text: 'Press any key', color: 3 },
+        ];
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].text) {
+                lprint(lines[i].text, MCW / 2, cy, lines[i].color, 1);
+            }
+            cy += 10;
+        }
+    };
+    menuList.push(bg);
+
+    var input = mke(0, 0, 0);
+    input.dp = DP_TOP;
+    input.upd = function() {
+        if (Input.mouse.pressed || btnp('validate') || btnp('cancel')) {
+            sfx('menu_out');
+            closeMenu();
+            menuState = 'title';
+            initMenu();
+        }
+    };
+    menuList.push(input);
+
+    mdr = drawMenu;
 }
 
 // === MENU DRAW ===

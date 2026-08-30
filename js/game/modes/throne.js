@@ -49,29 +49,26 @@ const ThroneMode = {
             Save.data.prog.throne.weapon_sel = this.weaponsIndex;
             Save.save();
         }
-        
-        // Show intro vignette sequence
-        if (this.intro) {
-            this.intro = false;
-            showVignetteSequence([1, 2, 3], () => {
-                initGame();
-                this.lvl = 0;
-                this.turns = 0;
-                cardSlots = new Array(10).fill(null);
-                cards = { pool: [] };
-                this.buildCardPool();
-                this.nextFloor();
-            });
-        } else {
-            // Skip intro, start directly
+
+        // Show loading screen while setting up game
+        showLoadingScreen(() => {
             initGame();
             this.lvl = 0;
             this.turns = 0;
             cardSlots = new Array(10).fill(null);
             cards = { pool: [] };
             this.buildCardPool();
-            this.nextFloor();
-        }
+
+            // Show intro vignette sequence
+            if (this.intro) {
+                this.intro = false;
+                showVignetteSequence([1, 2, 3], () => {
+                    this.nextFloor();
+                });
+            } else {
+                this.nextFloor();
+            }
+        });
     },
     
     buildCardPool() {
