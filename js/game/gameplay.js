@@ -584,14 +584,10 @@ function newTurn() {
     // Clean squares
     for (const sq of squares) sq.plague = null;
     
-    // Update bad pieces
+    // Update bad pieces - all enemies act every turn
     for (const e of [...bads]) {
         if (e.dead) continue;
-        e.ready = false;
-        if (!e.stun) {
-            e.cd = (e.cd || 0) + 1;
-            e.ready = e.cd >= getPieceTempo(e);
-        }
+        e.ready = !e.stun; // All non-stunned enemies are ready each turn
         e.hoppedOn = null;
         e.curtsy = null;
         e.cHit = 0;
@@ -599,7 +595,7 @@ function newTurn() {
         e.dcx = 0;
         e.dcy = 0;
         e.kback = null;
-        
+
         // Counters
         if (e.poisoned) {
             e.poisoned = e.poisoned > 1 ? e.poisoned - 1 : null;
@@ -607,7 +603,7 @@ function newTurn() {
         if (e.stun) {
             e.stun = e.stun > 1 ? e.stun - 1 : null;
         }
-        
+
         e.airy = e.wraith && !e.ready;
     }
     
@@ -953,12 +949,18 @@ function onDeath(e) {
     e.dead = true;
     kl(e);
     del(bads, e);
-    
+
     // Leave square
     leaveSq(e);
-    
-    // Check level end
-    checkLevelEnd();
+
+    // Check level end - defer to avoid state inconsistency
+    if (e.type === 5 || e.type === 8) {
+        // King died - trigger win sequence
+        hero.win = true;
+        wait(10, function() {
+            checkLevelEnd();
+        });
+    }
 }
 
 function onBossDeath() {
@@ -1126,37 +1128,90 @@ function oppAtk(atk, def, cb) {
         if (cb) cb();
         return;
     }
-    
-    // Attack animation - move towards target then attack
+
     const t = TEMPO;
-    
+
+    // Jump attack animation - enemy leaps onto hero
+    const [hx, hy] = sqp(hero.sq);
+    const [ax, ay] = sqp(atk.sq);
+
+    // Phase 1: Wind up (move back slightly)
     sfx('blade');
-    
-    // Check shields
-    if (shields > 0) {
-        shields--;
-        sfx('shield');
-        // Move piece back
-        wait(TEMPO, function() {
-            if (cb) cb();
+    atk.z = 0;
+    const windup = loop(function(ev) {
+        const c = ev.t / (t / 2);
+        atk.z = -Math.sin(c * Math.PI) * 4; // small hop back
+    }, t / 2);
+
+    wait(t / 2, function() {
+        kl(windup);
+
+        // Phase 2: Jump onto hero
+        const jumpAnim = loop(function(ev) {
+            const c = ev.t / t;
+            // Interpolate position from attacker to hero
+            atk.jx = ax + (hx - ax) * c;
+            atk.jy = ay + (hy - ay) * c;
+            // Arc height
+            atk.z = -Math.sin(c * Math.PI) * 12;
+            // Scale up as it lands on hero
+            atk.js = 1 + c * 0.5;
+        }, t);
+
+        wait(t, function() {
+            kl(jumpAnim);
+            atk.jx = null;
+            atk.jy = null;
+            atk.z = 0;
+            atk.js = 1;
+
+            // Phase 3: Crush effect - screen shake + impact
+            screenShake = 15;
+            sfx('crush');
+
+            // Check shields
+            if (shields > 0) {
+                shields--;
+                sfx('shield');
+                // Enemy bounces off
+                const bounce = loop(function(ev) {
+                    const c = ev.t / (t / 2);
+                    atk.z = -Math.sin(c * Math.PI) * 6;
+                }, t / 2);
+                wait(t / 2, function() {
+                    kl(bounce);
+                    atk.z = 0;
+                    wait(TEMPO, function() {
+                        if (cb) cb();
+                    });
+                });
+                return;
+            }
+
+            // Hit hero
+            hero.hp -= 1;
+            hero.cHit = 30;
+            sfx('hurt');
+
+            if (hero.hp <= 0) {
+                hero.dead = true;
+                // Crush animation - hero squashed
+                if (hero) {
+                    const squash = loop(function(ev) {
+                        hero.scaleY = 1 - ev.t / 10;
+                        if (ev.t >= 10) {
+                            kl(squash);
+                            gameover();
+                        }
+                    }, 10);
+                }
+                return;
+            }
+
+            wait(TEMPO + 10, function() {
+                if (cb) cb();
+            });
         });
-        return;
-    }
-    
-    // Hit hero
-    hero.hp -= 1;
-    hero.cHit = 30;
-    sfx('hurt');
-    screenShake = 12;
-    
-    if (hero.hp <= 0) {
-        hero.dead = true;
-        gameover();
-        return;
-    }
-    
-    wait(TEMPO + 10, function() {
-        if (cb) cb();
     });
 }
 
@@ -1543,6 +1598,16 @@ function drawPiece(e, x, y) {
         if (e.cShake < 0.5) e.cShake = 0;
     }
 
+    // Use jump position if available (during attack animation)
+    let drawX = x + shx;
+    let drawY = y;
+    let scaleX = 1;
+    let scaleY = 1;
+    if (e.jx !== null && e.jx !== undefined) drawX = e.jx + shx;
+    if (e.jy !== null && e.jy !== undefined) drawY = e.jy;
+    if (e.js) { scaleX = e.js; scaleY = e.js; }
+    if (e.scaleY !== undefined) scaleY = e.scaleY;
+
     // Z offset (height)
     const dz = e.z || 0;
 
@@ -1555,8 +1620,8 @@ function drawPiece(e, x, y) {
         // Use spr() with correct sprite index (like Lua spr(16+tp, ...))
         // Hero is type 5 (king), so sprite index = 16 + 5 = 21
         const heroSprIdx = 16 + 5; // 21
-        const bodyX = x + shx;
-        const bodyY = y + dz + PDY;
+        const bodyX = drawX;
+        const bodyY = drawY + dz + PDY;
 
         // Draw shadow (depth effect) - like Lua shpr(20,12,7,4,...)
         if (dz > -1) {
@@ -1593,8 +1658,8 @@ function drawPiece(e, x, y) {
 
     } else if (e.bad) {
         // === ENEMY PIECE ===
-        const bodyX = x + shx;
-        const bodyY = y + dz + PDY;
+        const bodyX = drawX;
+        const bodyY = drawY + dz + PDY;
         const tp = e.type;
 
         // Use spr() with correct sprite index (like Lua spr(16+tp, ...))
