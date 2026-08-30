@@ -1646,21 +1646,19 @@ function drawUI() {
 function drawAimVisualization() {
     if (!hero || !hero.sq) return;
 
-    // Center on hero piece, accounting for camera offset
-    const camX = Sugar.camX;
-    const camY = Sugar.camY;
-    const heroX = hero.x + SQ / 2 + camX;
-    const heroY = hero.y + SQ / 2 + camY;
+    // Center on hero piece (no camera offset - draw directly on board)
+    const heroX = hero.x + SQ / 2;
+    const heroY = hero.y + SQ / 2;
     // Convert PICO-8 angle to radians (0=right, 0.25=down in PICO-8)
     const aimRad = hero.an * Math.PI * 2;
     const range = getFirerange() * SQ;
     const spreadRad = (getSpread() / 360) * Math.PI * 2;
 
-    // Board bounds (with camera offset)
-    const minX = board.x + camX;
-    const maxX = board.x + 8 * SQ + camX;
-    const minY = board.y + camY;
-    const maxY = board.y + 8 * SQ + camY;
+    // Board bounds
+    const minX = board.x;
+    const maxX = board.x + 8 * SQ;
+    const minY = board.y;
+    const maxY = board.y + 8 * SQ;
 
     // Calculate end point, clamped to board boundaries
     let endX = heroX + Math.cos(aimRad) * range;
@@ -1787,18 +1785,16 @@ function getPieceAttackRange(piece) {
     return maxRange;
 }
 
-// Draw semi-transparent filled rectangle (in board coords, with camera offset)
+// Draw semi-transparent filled rectangle (in board coords, no camera offset)
 function fillTransparent(x, y, w, h, color, alpha) {
     const ctx = Sugar.ctx;
     const os = Sugar.overlayScale;
-    const camX = Sugar.camX;
-    const camY = Sugar.camY;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = Sugar.getColor(color);
     ctx.fillRect(
-        Math.floor((x + camX) * os),
-        Math.floor((y + camY) * os),
+        Math.floor(x * os),
+        Math.floor(y * os),
         Math.ceil(w * os),
         Math.ceil(h * os)
     );

@@ -482,8 +482,6 @@ function handleMoveInput() {
             moveHero(sq, function() {
                 ctrlMode = 'aim';
                 showShootRange();
-                // Reset double-click timer to prevent immediate fire
-                Input._lastClickTime = 0;
             });
             return;
         }
@@ -492,8 +490,6 @@ function handleMoveInput() {
         if (sq && sq.p === hero) {
             ctrlMode = 'aim';
             showShootRange();
-            // Reset double-click timer to prevent immediate fire
-            Input._lastClickTime = 0;
         }
     }
     
@@ -585,8 +581,8 @@ function handleAimInput() {
         gameState.hoveredPiece = hoverSq.p;
     }
 
-    // Double-click to fire only
-    if (Input.mouse.dclick && chamber > 0) {
+    // Single click/tap to fire (mobile-friendly)
+    if (Input.mouse.down && !Input._prevDown && chamber > 0) {
         fire();
         if (chamber <= 0) {
             wait(20, endPlayerTurn);
