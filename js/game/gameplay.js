@@ -1064,10 +1064,10 @@ function oppMove() {
 
     // Pick first ready piece
     const e = ready[0];
-    e.ready = false;
 
     // Choose action
     const action = getPieceNextAction(e);
+    e.ready = false; // Mark as processed
 
     if (!action) {
         // No valid action, skip
@@ -1259,13 +1259,13 @@ function heroDisappear(nxt) {
     const ev = loop(function(ev) {
         hero.z = hero.z - 0.4;
         hero.fade = (ev.t % 4 < 2);
-        if (ev.t >= 30) {
-            kl(ev);
-            kl(beam);
-            kl(hero);
-            if (nxt) nxt();
-        }
-    });
+    }, 31); // duration = 31 frames
+
+    ev.nxt = function() {
+        kl(beam);
+        kl(hero);
+        if (nxt) nxt();
+    };
 }
 
 function ascendEnemies(nxt) {
@@ -1305,17 +1305,18 @@ function ascendEnemies(nxt) {
                 // Float up and fade out
                 e.z = e.z - 0.5;
                 e.fade = (ev.t % 3 < 1);
-                if (ev.t >= 40) {
-                    kl(ev);
-                    kl(e);
-                    del(bads, e);
-                    completed++;
-                    if (completed >= total && nxt) {
-                        nxt();
-                    }
-                }
             }
-        });
+        }, 41); // duration = 41 frames (ev.t goes 0..40)
+
+        // Use nxt callback to detect completion
+        ev.nxt = function() {
+            kl(e);
+            del(bads, e);
+            completed++;
+            if (completed >= total && nxt) {
+                nxt();
+            }
+        };
     }
 }
 

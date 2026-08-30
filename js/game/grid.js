@@ -256,9 +256,6 @@ function getRange(p, tag, soulType, planning) {
 
 // Get piece's next action (move or attack)
 function getPieceNextAction(e) {
-    // Check if piece is ready
-    if (!e.ready) return null;
-
     const grids = [];
 
     // Check if hero is within attack range - if so, generate attack action
