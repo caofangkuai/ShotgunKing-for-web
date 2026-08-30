@@ -83,9 +83,9 @@ const Lang = {
         // Set default plural
         if (!this.plural['*']) this.plural['*'] = 's';
         
-        // Apply font
-        if (this.fontName && Sugar.fonts[this.fontName]) {
-            Sugar.font(this.fontName);
+        // Apply font (works if fonts are already loaded, otherwise main.js applies it)
+        if (this.fontName && Sugar.fonts && Sugar.fonts[this.fontName]) {
+            this.applyFont();
         }
     },
     
@@ -151,6 +151,10 @@ const Lang = {
     applyFont() {
         if (this.fontName && Sugar.fonts[this.fontName]) {
             const f = Sugar.fonts[this.fontName];
+            // Apply language-specific font settings
+            if (this.fontSize) f.sz = this.fontSize;
+            if (this.fontLineHeight) f.h = this.fontLineHeight;
+            if (this.fontDy !== undefined) f.dy = this.fontDy;
             Sugar.font(this.fontName);
         }
     },

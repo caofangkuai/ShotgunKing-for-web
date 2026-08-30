@@ -43,10 +43,7 @@ function initMenu(gotoPlay) {
         sspr(0, 0, MCW, MCH, x, y);
         spritesheet('gfx');
         
-        var sav = font();
-        font('pico');
         lprint('PUNKCAKE#9 v1.515g', 1, 1, 2);
-        font(sav);
     };
     
     // CASTLE - slides up from below
@@ -312,10 +309,6 @@ function mkMenuBut(id, x, y, w, h) {
         }
         spritesheet('gfx');
         
-        // Always use pico font for button text (button height = 12px, designed for pico 5px font)
-        var fntsav = font();
-        font('pico');
-        
         // NAME - centered
         var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
         if (e.align_left) {
@@ -337,9 +330,6 @@ function mkMenuBut(id, x, y, w, h) {
                 line(sx, sy - 3, sx, sy + 1, i < e.slider ? valc : 1);
             }
         }
-        
-        // Restore font
-        font(fntsav);
     };
     
     return e;
@@ -455,10 +445,6 @@ function initWeaponSelect() {
     rankPan.dr = function(e, px, py) {
         var data = RANKS[e.sel];
         
-        // Save font and use pico for panel
-        var fntsav = font();
-        font('pico');
-        
         // Panel background
         rectfill(px, py, px + rpw - 1, py + rph - 1, 1);
         if (e.selected) {
@@ -484,9 +470,6 @@ function initWeaponSelect() {
         var desc = describeRank(data);
         desc = sbs(desc, '%$', lang.degree_symbol || '\u00b0');
         pprint(desc, px + rpw / 2, py + 32 + 8, rpw, 3, 1);
-        
-        // Restore font
-        font(fntsav);
     };
     elements.push(rankPan);
     menuList.push(rankPan);
@@ -552,10 +535,6 @@ function initWeaponSelect() {
             rect(px - 1, py - 1, px + wpw, py + wph, 5);
         }
         
-        // Save font and use pico for panel text
-        var fntsav = font();
-        font('pico');
-        
         // Title - weapon name
         lprint(data.name, px + wpw / 2, py + 3, 3, 1);
         
@@ -620,9 +599,6 @@ function initWeaponSelect() {
             lprint(valStr, stx + lblW + 3, sty, 4);
             col++;
         }
-        
-        // Restore font
-        font(fntsav);
     };
     elements.push(wepPan);
     menuList.push(wepPan);
@@ -784,9 +760,9 @@ function initWeaponSelect() {
 }
 
 // Square button factory (matches Android mk_square_but)
-function mkSquareBut(name, action) {
+function mkSquareBut(name, action, pw) {
     var e = mke();
-    e.pw = 64;
+    e.pw = pw || 64;
     e.ph = BUTTON_HEIGHT;
     e.name = name;
     e.ov = false;
@@ -831,16 +807,9 @@ function mkSquareBut(name, action) {
         }
         spritesheet('gfx');
         
-        // Always use pico font for button text (button height = 12px, designed for pico 5px font)
-        var fntsav = font();
-        font('pico');
-        
         // Button text - centered
         var txty = y + (BUTTON_HEIGHT * 0.5) - 2;
         lprint(e.name, x + e.pw / 2, txty, labelc, 1);
-        
-        // Restore font
-        font(fntsav);
     };
     
     return e;

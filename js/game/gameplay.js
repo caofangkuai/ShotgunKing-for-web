@@ -1287,13 +1287,17 @@ function drawPiece(e, x, y) {
 function drawUI() {
     if (!ingame) return;
     
-    // Save current font and use pico for all gameplay UI
-    var savedFont = font();
-    font('pico');
-    
     spritesheet('gfx');
     
-    // Chamber (top row, closest to board)
+    // Floor display (top center, above board)
+    var floorStr = (lang.floor_ || 'Floor:') + ' ';
+    var lvlStr = String(mode.lvl || 1);
+    var floorW = txtwidth(floorStr);
+    var fx = (MCW - (floorW + txtwidth(lvlStr))) / 2;
+    lprint(floorStr, fx, 2, 3);
+    lprint(lvlStr, fx + floorW, 2, 5);
+    
+    // Chamber (above board, starting from boardX)
     const chmax = Math.max(stack.chamber_max || 0, chamber);
     for (let i = 0; i < chmax; i++) {
         const y = boardY - 10;
@@ -1308,13 +1312,11 @@ function drawUI() {
         wfy = (mode.weaponsIndex + 1) * 16;
     }
     if (inter && inter.cReload) wfr = 120;
-    var shotgunX = boardX + chmax * 4 + 4;
-    var shotgunY = boardY - 14;
-    sspr(wfr, wfy, 24, 16, shotgunX, shotgunY);
+    sspr(wfr, wfy, 24, 16, boardX + chmax * 4 + 2, boardY - 20);
     
     spritesheet('gfx');
     
-    // Ammo display (second row, below chamber)
+    // Ammo display (below chamber, above board)
     const ram = ammo - waitAmmo;
     for (let i = 0; i < (stack.ammo_max || 0); i++) {
         const y = boardY - 3;
@@ -1327,22 +1329,27 @@ function drawUI() {
         sspr(i < shields ? 32 : 38, 64, 6, 7, boardX + (stack.ammo_max || 0) * 4 + i * 6 + 1, boardY - 3);
     }
     
-    // Floor display (centered, below board top)
-    const s = (lang.floor_ || 'Floor') + ' ';
-    const lx = lprint(s, MCW / 2, 2, 3, 1);
-    lprint(String(mode.lvl || 1), lx, 2, 5);
+    // Card display (both sides of board)
+    drawCardsPanel();
     
-    // Turn counter (bottom left)
-    if (mode.turns) {
-        lprint(lang.turn || 'Turn', 2, boardY + ymax * SQ + 2, 3);
-        lprint(String(mode.turns), 2 + txtwidth(lang.turn || 'Turn') + 4, boardY + ymax * SQ + 2, 5);
-    }
-    
-    // Stats panel (left side)
+    // Stats panel (left side, between card slots and board)
     drawStatsPanel();
     
-    // Card display (right side)
-    drawCardsPanel();
+    // Turn counter and difficulty (bottom, below board)
+    var by = boardY + ymax * SQ + 2;
+    if (mode.turns) {
+        var turnLabel = lang.turn_ || 'Turn:';
+        lprint(turnLabel, 2, by, 3);
+        lprint(String(mode.turns), 2 + txtwidth(turnLabel) + 2, by, 5);
+    }
+    // Difficulty/rank (bottom center)
+    if (mode.ranksIndex !== undefined && RANKS) {
+        var rankStr = (lang.rank || 'Rank') + ' ' + (mode.ranksIndex + 1);
+        lprint(rankStr, MCW / 2, by, 3, 1);
+    }
+    // Mode name (bottom right)
+    var modeStr = mode.id === 'throne' ? (lang.throne || 'Throne') : (lang.endless || 'Endless');
+    lprint(modeStr, MCW - 2, by, 3, 2);
     
     // Level up UI
     if (leveling) {
@@ -1353,24 +1360,24 @@ function drawUI() {
     if (ingameover) {
         drawGameOverUI();
     }
-    
-    // Restore font
-    font(savedFont);
 }
 
 function drawStatsPanel() {
-    const x = 2;
-    
+    // Position to the LEFT of the board, between card slots and board edge
+    // Card slots are at x=0..20, board starts at boardX=96
+    // Stats panel goes at x=22, width ~72px
+    const x = 22;
     const stats = getDispStats();
-    const ec = 8;
-    let cy = boardY + ymax * SQ - stats.length * ec;
+    const ec = Sugar.fontLineHeight || 8;
+    let cy = boardY + 2;
     
     for (const s of stats) {
         lprint(s.name, x, cy, 3);
-        lprint(s.value, x + 28, cy, 5);
+        lprint(s.value, x + 36, cy, 5);
         cy += ec;
     }
     
+    // Special ability
     if (stack.special && stack.special !== 'none') {
         const spec = lang['special_' + stack.special] || stack.special;
         lprint(spec, x, cy, 4);
@@ -1391,44 +1398,81 @@ function getDispStats() {
 }
 
 function drawCardsPanel() {
-    const x = boardX + xmax * SQ + 3;
-    const startY = boardY;
-    const cardH = 14;
     const maxSlots = 10;
+    const cardW = 20;
+    const startY = boardY;
+    const availH = ymax * SQ;
+    const slotH = Math.floor(availH / maxSlots);
     
     if (!cardSlots) return;
     
-    // Calculate how many slots can fit vertically
-    var availH = MCH - startY - 2;
-    var slotH = Math.min(cardH, Math.floor(availH / maxSlots));
-    
-    for (let i = 0; i < maxSlots; i++) {
+    // Split card slots by team
+    var whiteSlots = [];
+    var blackSlots = [];
+    for (let i = 0; i < cardSlots.length; i++) {
         const sl = cardSlots[i];
-        const cx = x;
+        if (sl && sl.ca) {
+            if (sl.ca.team === 1) whiteSlots.push(sl);
+            else blackSlots.push(sl);
+        }
+    }
+    
+    // Left side: player/black card slots (team 0) - at x=0
+    var lx = 0;
+    for (let i = 0; i < maxSlots; i++) {
+        const sl = blackSlots[i];
+        const cx = lx;
         const cy = startY + i * slotH;
         
-        if (!sl || !sl.ca) {
-            // Empty slot indicator
-            rectfill(cx, cy, cx + 22, cy + slotH - 1, 1);
-            rect(cx, cy, cx + 22, cy + slotH - 1, 0);
+        if (!sl) {
+            // Empty slot - dark with border
+            rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 1);
+            rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
         } else {
             const ca = sl.ca;
-            
+            if (ca.flipped) {
+                // Flipped card - dark with X mark
+                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
+                lprint('X', cx + cardW / 2, cy + 1, 2, 1);
+            } else {
+                // Active card - brown background for black team
+                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 4);
+                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
+                // Show short card name (truncate to fit 20px width)
+                var name = ca.id || ca.name || '';
+                // For 12px font, only ~2 chars fit in 20px
+                if (name.length > 2) name = name.substring(0, 2);
+                lprint(name, cx + cardW / 2, cy + 1, 7, 1);
+            }
+        }
+    }
+    
+    // Right side: enemy/white card slots (team 1) - at x=MCW-cardW
+    var rx = MCW - cardW;
+    for (let i = 0; i < maxSlots; i++) {
+        const sl = whiteSlots[i];
+        const cx = rx;
+        const cy = startY + i * slotH;
+        
+        if (!sl) {
+            // Empty slot
+            rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 1);
+            rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+        } else {
+            const ca = sl.ca;
             if (ca.flipped) {
                 // Flipped card
-                rectfill(cx, cy, cx + 22, cy + slotH - 1, 1);
-                rect(cx, cy, cx + 22, cy + slotH - 1, 0);
-                lprint('x', cx + 8, cy + 2, 5);
+                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
+                lprint('X', cx + cardW / 2, cy + 1, 2, 1);
             } else {
-                // Active card
-                const team = ca.team || 0;
-                rectfill(cx, cy, cx + 22, cy + slotH - 1, team === 1 ? 4 : 5);
-                rect(cx, cy, cx + 22, cy + slotH - 1, 0);
-                
-                // Card name (truncated)
-                var name = ca.id || '';
-                if (name.length > 8) name = name.substring(0, 8);
-                lprint(name, cx + 2, cy + 2, team === 1 ? 7 : 0);
+                // Active card - dark gray for white team
+                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
+                var name2 = ca.id || ca.name || '';
+                if (name2.length > 2) name2 = name2.substring(0, 2);
+                lprint(name2, cx + cardW / 2, cy + 1, 7, 1);
             }
         }
     }
@@ -1621,29 +1665,7 @@ function checkCardsAutoFlip() {
     }
 }
 
-function mkSquareBut(label, fn, pw) {
-    const e = mke(0, 0, 0);
-    e.label = label;
-    e.fn = fn;
-    e.pw = pw || 32;
-    e.ph = 12;
-    e.dp = DP_TOP;
-    e.dr = function(e, x, y) {
-        const hover = Input.mouseInRect(x, y, e.pw, e.ph);
-        rectfill(x, y, x + e.pw, y + e.ph, hover ? 5 : 1);
-        rect(x, y, x + e.pw, y + e.ph, 7);
-        lprint(e.label, x + e.pw / 2, y + 2, hover ? 0 : 7, 1);
-    };
-    e.upd = function(e) {
-        if (e.t > 5 && Input.mouse.pressed && Input.mouseInRect(e.x, e.y, e.pw, e.ph)) {
-            e.fn();
-        }
-        if (e.t > 5 && btnp('validate') && rov === e) {
-            e.fn();
-        }
-    };
-    return e;
-}
+// mkSquareBut is defined in menu.js (with 9-slice sprite rendering matching Android UI)
 
 function removeButs() {
     // Remove menu buttons

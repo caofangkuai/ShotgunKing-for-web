@@ -473,104 +473,9 @@ const Sugar = {
     
     // === TEXT ===
     
-    // Hardcoded PICO-8 font masks (extracted from pico_font.png)
-    // Each mask is a 20-char string (4px wide × 5px tall), '1'=on, '0'=off
-    PICO_FONT_MASKS: {
-        '!': '01000100010000000100',
-        '"': '10101010000000000000',
-        '#': '10101110101011101010',
-        '$': '01001010010000000000',
-        '%': '10100010010010001010',
-        '&': '00001010111011100100',
-        "'": '01001000000000000000',
-        '(': '01001000100010000100',
-        ')': '01000010001000100100',
-        '*': '10100100111001001010',
-        '+': '00000100111001000000',
-        ',': '00000000000001001000',
-        '-': '00000000111000000000',
-        '.': '00000000000000000100',
-        '/': '00000100010010001000',
-        '0': '11101010101010101110',
-        '1': '01001100010001001110',
-        '2': '11100010111010001110',
-        '3': '11100010011000101110',
-        '4': '10101010111000100010',
-        '5': '11101000111000101110',
-        '6': '11101000111010101110',
-        '7': '11100010001000100010',
-        '8': '11101010111010101110',
-        '9': '11101010111000101110',
-        ':': '00000100000001000000',
-        ';': '00000100000001000100',
-        '<': '00100100100001000010',
-        '=': '00001110000011100000',
-        '>': '10000100001001001000',
-        '?': '11100010011000000100',
-        '@': '11101010111010101010',
-        'A': '11101010110010101110',
-        'B': '11101000100010001110',
-        'C': '11001010101010101100',
-        'D': '11101000110010001110',
-        'E': '11101000110010001000',
-        'F': '11101000100010101110',
-        'G': '10101010111010101010',
-        'H': '11100100010001001110',
-        'I': '01100010001010101110',
-        'J': '10101010110010101010',
-        'K': '10001000100010001110',
-        'L': '11101110101010101010',
-        'M': '11001010101010101010',
-        'N': '01101010101010101100',
-        'O': '11101010111010001000',
-        'P': '01001010101011000110',
-        'Q': '11101010110010101010',
-        'R': '01101000111000101100',
-        'S': '11100100010001000100',
-        'T': '10101010101010101110',
-        'U': '10101010101011100100',
-        'V': '10101010101011101110',
-        'W': '10101010010010101010',
-        'X': '10101010111000101110',
-        'Y': '11100010010010001110',
-        'Z': '01100100010001000110',
-        '[': '00000100010000100010',
-        '\\': '11000100010001001100',
-        ']': '01001010000000000000',
-        '^': '00000000000000001110',
-        '_': '01000000000000000000',
-        '`': '01000000000000000000',
-        'a': '11101010111010101010',
-        'b': '11101010110010101110',
-        'c': '11101000100010001110',
-        'd': '11001010101010101100',
-        'e': '11101000110010001110',
-        'f': '11101000110010001000',
-        'g': '11101000100010101110',
-        'h': '10101010111010101010',
-        'i': '11100100010001001110',
-        'j': '01100010001010101110',
-        'k': '10101010110010101010',
-        'l': '10001000100010001110',
-        'm': '11101110101010101010',
-        'n': '11001010101010101010',
-        'o': '01101010101010101100',
-        'p': '11101010111010001000',
-        'q': '01001010101011000110',
-        'r': '11101010110010101010',
-        's': '01101000111000101100',
-        't': '11100100010001000100',
-        'u': '10101010101010101110',
-        'v': '10101010101011100100',
-        'w': '10101010101011101110',
-        'x': '10101010010010101010',
-        'y': '10101010111000101110',
-        'z': '11100010010010001110',
-        '{': '01000100111011100000',
-        '|': '01000100010001000100',
-        '}': '00001110111001000100',
-        '~': '00000010111010000000',
-    },
+    // Hardcoded PICO-8 font masks - DISABLED (masks were incorrect)
+    // When pico_font.png fails to load, fall through to canvas monospace rendering
+    PICO_FONT_MASKS: {},
     
     // Get font mask for a character (with hardcoded fallback)
     getFontMask(ch) {
@@ -638,81 +543,46 @@ const Sugar = {
             { name: 'Terminus', src: 'assets/fonts/Terminus.ttf', sz: 12, dy: 8, h: 14 },
             { name: 'Determination', src: 'assets/fonts/Determination.ttf', sz: 13, dy: 9, h: 14 },
             { name: 'galvanic', src: 'assets/fonts/galvanic.ttf', sz: 8, dy: 8, h: 12 },
-            { name: 'pico', src: 'assets/gfx/pico_font.png', type: 'bitmap' },
+            { name: 'pico', src: 'assets/fonts/pico.ttf', sz: 8, dy: 0, h: 8 },
         ];
         
-        // Standard ASCII charset starting from '!' (code 33) to '~' (code 126)
-        var picoCharset = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
+        // Register all font metadata immediately
+        for (const f of fontList) {
+            this.fonts[f.name] = { type: 'ttf', name: f.name, sz: f.sz, dy: f.dy, h: f.h, overlay: false, loaded: false };
+        }
+        
+        // Use FontFace API for explicit loading (more reliable for Canvas than CSS @font-face)
         const promises = [];
         for (const f of fontList) {
-            if (f.type === 'bitmap') {
-                promises.push(this.loadSpritesheet(f.name + '_font', f.src).then(img => {
-                    if (img) {
-                        var charW = 4;
-                        var charH = 5;
-                        var masks = null;
-                        // Try to extract pixel masks via getImageData
-                        try {
-                            var tmpCanvas = document.createElement('canvas');
-                            tmpCanvas.width = img.width;
-                            tmpCanvas.height = img.height;
-                            var tctx = tmpCanvas.getContext('2d');
-                            tctx.drawImage(img, 0, 0);
-                            var imgData = tctx.getImageData(0, 0, img.width, img.height);
-                            var data = imgData.data;
-                            var numChars = Math.floor(img.width / charW);
-                            var extracted = {};
-                            for (var ci = 0; ci < numChars && ci < picoCharset.length; ci++) {
-                                var ch = picoCharset[ci];
-                                var mask = [];
-                                for (var py = 0; py < charH; py++) {
-                                    for (var px = 0; px < charW; px++) {
-                                        var sx = ci * charW + px;
-                                        var pixelIdx = (py * img.width + sx) * 4;
-                                        var r = data[pixelIdx];
-                                        var g = data[pixelIdx + 1];
-                                        var b = data[pixelIdx + 2];
-                                        mask.push(r > 40 || g > 40 || b > 40);
-                                    }
-                                }
-                                extracted[ch] = mask;
-                            }
-                            // Verify extraction worked (at least some chars have non-empty masks)
-                            var nonEmpty = 0;
-                            for (var k in extracted) {
-                                if (extracted[k].some(function(v) { return v; })) nonEmpty++;
-                            }
-                            if (nonEmpty > 10) {
-                                masks = extracted;
-                                console.log('Pico font loaded via getImageData: ' + nonEmpty + ' chars');
-                            } else {
-                                console.warn('getImageData returned empty masks, using hardcoded fallback');
-                            }
-                        } catch (e) {
-                            console.warn('Failed to extract font masks (CORS?), using hardcoded fallback:', e.message);
-                        }
-                        // Always store the font - drawBitmapText will use getFontMask() which checks hardcoded fallback
-                        this.fonts[f.name] = { type: 'bitmap', masks: masks, charW: charW, charH: charH, dy: 0, h: 7, charset: picoCharset };
-                    } else {
-                        console.warn('Pico font image failed to load, using hardcoded fallback');
-                        this.fonts[f.name] = { type: 'bitmap', masks: null, charW: 4, charH: 5, dy: 0, h: 7, charset: picoCharset };
-                    }
-                }));
-            } else {
-                // FontFace.load() can hang on mobile - add 3s timeout per font
-                const fontLoadPromise = new FontFace(f.name, `url(${f.src})`).load();
-                promises.push(Promise.race([
-                    fontLoadPromise.then(loadedFont => {
-                        document.fonts.add(loadedFont);
-                        this.fonts[f.name] = { type: 'ttf', name: f.name, sz: f.sz, dy: f.dy, h: f.h, overlay: false };
-                    }).catch(e => {
-                        console.warn('Failed to load font:', f.name, e);
-                    }),
-                    new Promise(resolve => setTimeout(resolve, 3000))
-                ]));
-            }
+            const face = new FontFace(f.name, `url(${f.src})`);
+            const p = face.load().then(loadedFace => {
+                // Add to document fonts so Canvas can use it
+                document.fonts.add(loadedFace);
+                this.fonts[f.name].loaded = true;
+                console.log('Font loaded:', f.name);
+            }).catch(e => {
+                console.warn('FontFace load failed for', f.name, e);
+                // CSS @font-face in index.html is a fallback
+            });
+            // Race with timeout - don't block game for slow fonts
+            promises.push(Promise.race([p, new Promise(r => setTimeout(r, 8000))]));
         }
+        
+        // Wait for all font loading attempts to complete (or timeout)
         return Promise.all(promises);
+    },
+    
+    // Check if current font is loaded and ready for Canvas rendering
+    isFontReady() {
+        const f = this.fonts[this.currentFont];
+        if (!f) return false;
+        if (f.type !== 'ttf') return true;
+        const fontStr = `${f.sz || 8}px "${f.name || this.currentFont}"`;
+        try {
+            return document.fonts.check(fontStr);
+        } catch(e) {
+            return f.loaded || false;
+        }
     },
     
     font(name) {
@@ -727,23 +597,44 @@ const Sugar = {
         return name;
     },
     
+    // Build canvas font string - always use the custom font name
+    // The browser automatically falls back to a system font with CJK support
+    // when the custom font isn't loaded yet. Using "monospace" as fallback
+    // breaks CJK text on many systems because monospace lacks CJK glyphs.
+    _getCanvasFont() {
+        const f = this.fonts[this.currentFont];
+        if (!f) return '8px monospace';
+        const fontName = f.name || this.currentFont;
+        const fontSize = f.sz || 8;
+        // No explicit fallback - browser handles CJK fallback automatically
+        return `${fontSize}px "${fontName}"`;
+    },
+    
     // Text width
     txtwidth(str) {
+        if (str === undefined || str === null) return 0;
+        str = String(str);
         const f = this.fonts[this.currentFont];
         if (!f) return str.length * 4;
         if (f.type === 'bitmap') {
-            return str.length * 4;
+            return str.length * (f.charW || 4);
         }
+        // TTF font - use canvas to measure with the same font string as lprint
         const ctx = this.getTargetCtx();
-        ctx.font = `${f.sz || 12}px ${f.name || this.currentFont}`;
+        ctx.font = this._getCanvasFont();
+        ctx.textAlign = 'left';
         return Math.ceil(ctx.measureText(str).width);
     },
     
-    // Print single line
+    // Print single line - always uses canvas fillText
+    // Browser handles font fallback automatically (including CJK glyphs)
     lprint(str, x, y, c, align, outline) {
         if (c === undefined) c = this._color;
+        if (str === undefined || str === null) return x;
+        str = String(str);
         const ctx = this.getTargetCtx();
         const f = this.fonts[this.currentFont];
+        const dy = (f && f.dy) || 0;
         
         let rx = x;
         if (align === 1) { // center
@@ -756,32 +647,22 @@ const Sugar = {
         const ty = Math.floor(y + this.camY);
         const tx = Math.floor(rx + this.camX);
         
-        if (f && f.type === 'bitmap') {
-            // Bitmap font (pico font) - using pixel masks with hardcoded fallback
-            this.drawBitmapText(str, tx, ty, c, outline);
-        } else if (f && f.type === 'ttf') {
-            ctx.font = `${f.sz || 12}px ${f.name || this.currentFont}`;
-            ctx.textBaseline = 'top';
-            
-            if (outline !== undefined && outline !== null) {
-                ctx.fillStyle = this.getColor(outline);
-                for (let dx = -1; dx <= 1; dx++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        if (dx === 0 && dy === 0) continue;
-                        ctx.fillText(str, tx + dx, ty + dy + (f.dy || 0));
-                    }
+        ctx.font = this._getCanvasFont();
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        
+        if (outline !== undefined && outline !== null) {
+            ctx.fillStyle = this.getColor(outline);
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy2 = -1; dy2 <= 1; dy2++) {
+                    if (dx === 0 && dy2 === 0) continue;
+                    ctx.fillText(str, tx + dx, ty + dy2 + dy);
                 }
             }
-            
-            ctx.fillStyle = this.getColor(c);
-            ctx.fillText(str, tx, ty + (f.dy || 0));
-        } else {
-            // Fallback: Canvas API when no font is loaded (mobile timeout)
-            ctx.font = '8px monospace';
-            ctx.textBaseline = 'top';
-            ctx.fillStyle = this.getColor(c);
-            ctx.fillText(str, tx, ty);
         }
+        
+        ctx.fillStyle = this.getColor(c);
+        ctx.fillText(str, tx, ty + dy);
         
         return rx;
     },

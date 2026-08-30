@@ -50,17 +50,37 @@ async function main() {
     }
     window.lang = Lang.data;
     
-    // Load fonts with 5s timeout (FontFace.load can hang on mobile)
+    // Load fonts with 10s timeout (FontFace.load can be slow for large fonts like indienovaBC 10MB)
     loadingPhase = 'fonts';
     try {
         await Promise.race([
             Sugar.loadAllFonts(),
-            new Promise(resolve => setTimeout(resolve, 5000))
+            new Promise(resolve => setTimeout(resolve, 10000))
         ]);
     } catch (e) {
         console.warn('Font loading error:', e);
     }
-    font(Lang.fontName || 'pico');
+    
+    // Apply font from language file and set font properties
+    const fontName = Lang.fontName || 'pico';
+    font(fontName);
+    
+    // Apply language-specific font settings (font_size, font_line_height, font_offset_y)
+    if (Sugar.fonts[fontName]) {
+        if (Lang.fontSize) {
+            Sugar.fonts[fontName].sz = Lang.fontSize;
+            Sugar.fontSize = Lang.fontSize;
+        }
+        if (Lang.fontLineHeight) {
+            Sugar.fonts[fontName].h = Lang.fontLineHeight;
+            Sugar.fontLineHeight = Lang.fontLineHeight;
+        }
+        if (Lang.fontDy !== undefined) {
+            Sugar.fonts[fontName].dy = Lang.fontDy;
+            Sugar.fontDy = Lang.fontDy;
+        }
+    }
+    console.log('Font set to:', fontName, 'size:', Sugar.fontSize, 'lineHeight:', Sugar.fontLineHeight, 'dy:', Sugar.fontDy);
     
     // Load spritesheets (needed for rendering)
     loadingPhase = 'sprites';
