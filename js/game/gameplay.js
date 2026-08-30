@@ -547,7 +547,10 @@ function newTurn() {
         }
         e.hoppedOn = null;
         e.curtsy = null;
-        e.hurt = null;
+        e.cHit = 0;
+        e.cShake = 0;
+        e.dcx = 0;
+        e.dcy = 0;
         e.kback = null;
         
         // Counters
@@ -790,29 +793,60 @@ function hit(e, dmg, at, from) {
     at = at || {};
     
     // Iron check
-    if (e.iron && !at.direct) return;
+    if (e.iron && !at.direct) {
+        e.cIron = 16;
+        sfx('shield');
+        return;
+    }
     
     // Shield check
     if (e.shield) {
         e.shield--;
+        e.cProtected = 16;
         sfx('shield');
         return;
     }
     
     // Bleeding bonus
-    if (e.bleed && stack.tearing) {
-        dmg += 1;
-    }
     if (e.bleed) {
         dmg += 1;
     }
     
     // Apply damage
     e.hp -= dmg;
-    e.hurt = 10;
-    e.cShake = 8;
+    e.cHit = 30;
+    e.from = from;
+    
+    // Knockback displacement (like Lua dcx/dcy)
+    if (from && (from.vx || from.vy)) {
+        e.dcx = from.vx;
+        e.dcy = from.vy;
+    } else {
+        e.cShake = 8;
+    }
     
     sfx(e.boss ? 'hurt_boss' : 'hurt');
+    
+    // Create floating damage number entity (like Lua)
+    if (!e.lifted && dmg > 0) {
+        const p = mke(0, e.x + 8, e.y);
+        if (e.big) {
+            p.x = p.x + 8;
+            p.y = p.y - 12;
+        }
+        p.dp = DP_FX;
+        p.dmg = dmg;
+        p.vy = -2;
+        p.frict = 0.85;
+        p.life = 60;
+        p.dr = function(p, x, y) {
+            const s = String(p.dmg);
+            // Draw damage number with outline for readability
+            lprint(s, x, y, 4, 1);
+        };
+        p.nxt = function() { e.hurtFx = null; };
+        e.hurtFx = p;
+    }
     
     // Knockback
     if (!e.big && !e.curtsy) {
@@ -831,16 +865,18 @@ function hit(e, dmg, at, from) {
             if (di !== undefined) {
                 const nsq = dsq(e.sq, di);
                 if (nsq && !nsq.p) {
-                    const [tx, ty] = sqp(nsq);
-                    mvt(e, tx, ty, 10);
-                    leaveSq(e);
-                    e.sq = nsq;
-                    nsq.p = e;
+                    e.kback = true;
+                    gotoSq(e, nsq);
+                    const r = function() { curtsy--; };
+                    wait(30, r);
                 } else if (!nsq) {
                     // Knocked off board
-                    kl(e);
-                    onDeath(e);
+                    const r = function() { curtsy--; };
+                    gotoFall(e, di);
+                    wait(60, r);
                     return;
+                } else {
+                    curtsy--;
                 }
             }
         }
@@ -899,8 +935,43 @@ function leaveSq(e) {
     }
 }
 
+// Move entity to a square (with tween)
+function gotoSq(e, sq, tempo) {
+    if (!e || !sq) return;
+    tempo = tempo || TEMPO;
+    
+    leaveSq(e);
+    e.sq = sq;
+    sq.p = e;
+    
+    const [tx, ty] = sqp(sq);
+    mvt(e, tx, ty, tempo, function() {
+        e.kback = false;
+    });
+}
+
+// Knock entity off board (fall animation)
+function gotoFall(e, di) {
+    if (!e) return;
+    
+    e.falling = true;
+    const dx = DIRS[di * 2] * 2;
+    const dy = DIRS[di * 2 + 1] * 2;
+    
+    // Tween off screen
+    mvt(e, e.x + dx * 20, e.y + dy * 20 + 30, 30, function() {
+        if (!e.dead) {
+            kl(e);
+            onDeath(e);
+        }
+    });
+}
+
 // === OPPONENT TURN ===
 function oppTurn() {
+    // Clean up dead bullets
+    bullets = bullets.filter(b => !b.dead);
+    
     // Wait for bullets
     if (bullets.length > 0 || curtsy > 0) {
         wait(4, oppTurn);
@@ -1009,7 +1080,7 @@ function oppAtk(atk, def, cb) {
     
     // Hit hero
     hero.hp -= 1;
-    hero.hurt = 10;
+    hero.cHit = 30;
     sfx('hurt');
     screenShake = 12;
     
@@ -1235,13 +1306,15 @@ function drawPiece(e, x, y) {
     
     spritesheet('gfx');
     
-    // Apply z offset
+    // Apply z offset and shake displacement
     const dy = e.z || 0;
+    const dx = e.dcx || 0;
+    const dy2 = e.dcy || 0;
     
     if (e === hero) {
         // Draw hero (black king)
         const fr = 176;
-        sspr(fr, 0, 16, 16, x, y + dy);
+        sspr(fr, 0, 16, 16, x + dx, y + dy + dy2);
         
         // Draw aim indicator
         if (aim || ctrlMode === 'aim') {
@@ -1249,6 +1322,16 @@ function drawPiece(e, x, y) {
             const ax = x + 8 + cos(an) * 8;
             const ay = y + 8 + sin(an) * 8;
             line(x + 8, y + 8, ax, ay, 8);
+        }
+        
+        // Hero hurt flash
+        if (e.cHit && e.cHit > 0) {
+            e.cHit--;
+            if (Math.floor(e.cHit / 4) % 2 === 0) {
+                pal(7, 8);
+                sspr(fr, 0, 16, 16, x + dx, y + dy + dy2);
+                palRst();
+            }
         }
     } else if (e.bad) {
         // Draw white piece
@@ -1259,29 +1342,45 @@ function drawPiece(e, x, y) {
             spy = 208;
         }
         
-        sspr(spx, spy, 16, 16, x, y + dy);
+        // Hurt flash effect (like Lua c_hit)
+        const isHurt = e.cHit && e.cHit > 0;
+        if (isHurt) {
+            e.cHit--;
+        }
         
-        // HP bar
+        if (isHurt && Math.floor(e.cHit / 4) % 2 === 0) {
+            // Flash white to red
+            pal(7, 8);
+            sspr(spx, spy, 16, 16, x + dx, y + dy + dy2);
+            palRst();
+        } else {
+            sspr(spx, spy, 16, 16, x + dx, y + dy + dy2);
+        }
+        
+        // HP bar (always show for damaged pieces)
         if (e.hp < e.hp_max) {
             const w = 12;
             const h = 2;
-            const bx = x + 2;
-            const by = y - 3 + dy;
+            const bx = x + 2 + dx;
+            const by = y - 3 + dy + dy2;
             rectfill(bx, by, bx + w, by + h, 0);
-            const hpw = Math.floor(w * e.hp / e.hp_max);
-            rectfill(bx, by, bx + hpw, by + h, 8);
-        }
-        
-        // Hurt flash
-        if (e.hurt && e.hurt > 0) {
-            e.hurt--;
-            if (Math.floor(e.hurt / 2) % 2 === 0) {
-                pal(7, 8);
-                sspr(spx, spy, 16, 16, x, y + dy);
-                palRst();
+            const hpw = Math.max(0, Math.floor(w * e.hp / e.hp_max));
+            if (hpw > 0) {
+                rectfill(bx, by, bx + hpw, by + h, 8);
             }
         }
+        
+        // Iron protection indicator
+        if (e.cIron && e.cIron > 0) {
+            e.cIron--;
+        }
     }
+    
+    // Decay shake displacement
+    if (e.dcx) e.dcx *= 0.8;
+    if (e.dcy) e.dcy *= 0.8;
+    if (Math.abs(e.dcx) < 0.1) e.dcx = 0;
+    if (Math.abs(e.dcy) < 0.1) e.dcy = 0;
 }
 
 function drawUI() {
