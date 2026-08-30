@@ -1,10 +1,15 @@
 // Input System - handles mouse, keyboard, and touch input
 
 const Input = {
-    mouse: { x: 0, y: 0, px: 0, py: 0, down: false, pressed: false, released: false, rightDown: false, rightPressed: false },
+    mouse: { x: 0, y: 0, px: 0, py: 0, down: false, pressed: false, released: false, rightDown: false, rightPressed: false, dclick: false },
     keys: {},
     keysPressed: {},
     touchActive: false,
+    _lastClickTime: 0,
+    _lastClickX: 0,
+    _lastClickY: 0,
+    _dclickThreshold: 300,
+    _dclickDist: 20,
     
     init() {
         const canvas = Sugar.canvas;
@@ -44,6 +49,17 @@ const Input = {
         if (e.button === 0) {
             this.mouse.down = true;
             this.mouse.pressed = true;
+            // Double-click detection
+            const now = Date.now();
+            const dx = pos.x - this._lastClickX;
+            const dy = pos.y - this._lastClickY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (now - this._lastClickTime < this._dclickThreshold && dist < this._dclickDist) {
+                this.mouse.dclick = true;
+            }
+            this._lastClickTime = now;
+            this._lastClickX = pos.x;
+            this._lastClickY = pos.y;
         } else if (e.button === 2) {
             this.mouse.rightDown = true;
             this.mouse.rightPressed = true;
@@ -197,6 +213,7 @@ const Input = {
         this.mouse.pressed = false;
         this.mouse.released = false;
         this.mouse.rightPressed = false;
+        this.mouse.dclick = false;
         this.keysPressed = {};
     },
     

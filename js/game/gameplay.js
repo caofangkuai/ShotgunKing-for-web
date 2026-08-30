@@ -1541,6 +1541,38 @@ function drawUI() {
     if (ingameover) {
         drawGameOverUI();
     }
+    
+    // Hover info for squares (attack range, name, HP)
+    if (typeof gameState !== 'undefined' && gameState.hoveredSq && gameState.hoveredPiece) {
+        drawHoverInfo(gameState.hoveredSq, gameState.hoveredPiece);
+    }
+}
+
+function drawHoverInfo(sq, piece) {
+    if (!sq || !piece) return;
+    
+    const infoX = 4;
+    const infoY = MCH - 32;
+    const infoW = MCW - 8;
+    const infoH = 28;
+    
+    // Background
+    rectfill(infoX, infoY, infoX + infoW, infoY + infoH, 1);
+    rect(infoX, infoY, infoX + infoW, infoY + infoH, 5);
+    
+    // Piece name
+    const pieceName = getPieceName(piece);
+    lprint(pieceName, infoX + 4, infoY + 2, 7);
+    
+    // HP
+    const hpStr = 'HP: ' + (piece.hp || 1) + '/' + (piece.hp_max || piece.hp || 1);
+    lprint(hpStr, infoX + 4, infoY + 12, 8);
+    
+    // Attack range for enemies
+    if (piece.bad && !piece.inert) {
+        const rangeStr = 'Range: ' + (piece.firerange || 1);
+        lprint(rangeStr, infoX + 50, infoY + 12, 11);
+    }
 }
 
 function drawStatsPanel() {
@@ -1666,38 +1698,75 @@ function drawLevelUpUI() {
     rectfill(0, 0, MCW, MCH, 0);
     
     // Title
-    lprint(lang.level_up || 'Level Up!', MCW / 2, 10, 5, 1);
+    lprint(lang.level_up || 'LEVEL UP!', MCW / 2, 6, 5, 1);
     
     // Card choices
     const choices = leveling.choices;
-    const cardW = 24;
-    const cardH = 32;
-    const totalW = choices.length * (cardW + 8) - 8;
+    const cardW = 48;
+    const cardH = 56;
+    const gap = 16;
+    const totalW = choices.length * (cardW + gap) - gap;
     const startX = (MCW - totalW) / 2;
-    const startY = MCH / 2 - cardH / 2;
+    const startY = MCH / 2 - cardH / 2 - 10;
     
     for (let i = 0; i < choices.length; i++) {
         const ca = choices[i];
-        const x = startX + i * (cardW + 8);
+        const x = startX + i * (cardW + gap);
         const y = startY;
         
         // Card background
         const team = ca.team || 0;
-        rectfill(x, y, x + cardW, y + cardH, team === 1 ? 4 : 5);
+        rectfill(x, y, x + cardW, y + cardH, team === 1 ? 12 : 1);
         rect(x, y, x + cardW, y + cardH, 0);
         
-        // Hover highlight
-        if (Input.mouseInRect(x, y, cardW, cardH)) {
-            rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 8);
+        // Draw card image from cards spritesheet using gid
+        if (ca.gid !== undefined) {
+            const sx = (ca.gid % 16) * 16;
+            const sy = Math.floor(ca.gid / 16) * 16;
+            sspr(sx, sy, 16, 16, x + (cardW - 24) / 2, y + 4, 24, 24);
         }
         
         // Card name
-        const name = ca.id;
-        pprint(name, x + 2, y + 2, cardW - 4, 0, 0, 3);
+        const name = ca.id || ca.name || '';
+        smallPrint(name, x + cardW / 2, y + 32, 7, 1);
+        
+        // Show card effect summary
+        const effect = getCardEffectText(ca);
+        if (effect) {
+            smallPrint(effect, x + cardW / 2, y + 42, 6, 1);
+        }
+        
+        // Show full description for hovered card
+        if (leveling.hoverIdx === i && ca.desc) {
+            rectfill(4, y + cardH + 4, MCW - 4, y + cardH + 24, 1);
+            rect(4, y + cardH + 4, MCW - 4, y + cardH + 24, 5);
+            pprint(ca.desc, MCW / 2, y + cardH + 8, MCW - 16, 7, 1);
+        }
+        
+        // Hover/select highlight
+        if (leveling.hoverIdx === i) {
+            rect(x - 2, y - 2, x + cardW + 2, y + cardH + 2, 8);
+            rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 11);
+        } else if (Input.mouseInRect(x, y, cardW, cardH)) {
+            rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 8);
+        }
     }
     
     // Instructions
-    lprint(lang.choose_card || 'Choose a card', MCW / 2, MCH - 10, 7, 1);
+    lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 10, 6, 1);
+}
+
+function getCardEffectText(ca) {
+    const parts = [];
+    if (ca.firepower) parts.push('PWR+' + ca.firepower);
+    if (ca.firerange) parts.push('RNG' + (ca.firerange > 0 ? '+' : '') + ca.firerange);
+    if (ca.spread) parts.push('SPR' + (ca.spread > 0 ? '+' : '') + ca.spread);
+    if (ca.ammo_max) parts.push('AMMO' + (ca.ammo_max > 0 ? '+' : '') + ca.ammo_max);
+    if (ca.chamber_max) parts.push('CHMB+' + ca.chamber_max);
+    if (ca.blade) parts.push('BLADE+' + ca.blade);
+    if (ca.knockback) parts.push('KNOCK');
+    if (ca.pierce) parts.push('PIERCE+' + ca.pierce);
+    return parts.join(' ');
 }
 
 function drawGameOverUI() {
@@ -1916,4 +1985,12 @@ function applyOption(name) {
     if (name === 'show_danger') {
         showDangerZone = Save.getOpt('show_danger') === 1;
     }
+}
+
+// === UTILITY ===
+function getPieceName(piece) {
+    if (!piece) return '';
+    if (!piece.bad) return 'King (You)';
+    const typeNames = ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King', 'Boss'];
+    return typeNames[piece.type] || 'Enemy';
 }

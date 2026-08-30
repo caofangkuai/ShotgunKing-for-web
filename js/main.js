@@ -11,6 +11,13 @@ let assetsLoadedCount = 0;
 let loadingProgress = 0;
 let loadingPhase = 'init'; // 'init', 'fonts', 'sprites', 'audio', 'done'
 
+// Game state for UI
+let gameState = {
+    hoveredSq: null,
+    hoveredPiece: null,
+    selectedSq: null
+};
+
 // === MAIN INITIALIZATION ===
 async function main() {
     console.log('Shotgun King: The Final Checkmate - Web Edition');
@@ -317,8 +324,8 @@ function _draw() {
         const barY = 90;
         const label = loadingPhase === 'sprites' ? 'LOADING GRAPHICS...' : 'LOADING AUDIO...';
         // Use small font for loading label to prevent overlap
-        const txtW = txtwidth4px(label);
-        smallPrint(label, (320 - txtW) / 2, barY - 10, 6);
+        const txtW = txtwidthSmall(label, 8);
+        smallPrint(label, (320 - txtW) / 2, barY - 12, 6);
         rectfill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 5);
         rectfill(barX, barY, barX + barW, barY + barH, 1);
         if (loadingPhase === 'sprites') {
@@ -436,17 +443,34 @@ function handleGameInput() {
 function handleMoveInput() {
     if (!hero || !hero.sq) return;
     
-    // Click on highlighted square to move
-    if (Input.mouse.pressed) {
-        const sq = getSquareAt(Input.mouse.x, Input.mouse.y);
+    // Track hovered square for info display
+    gameState.hoveredSq = null;
+    gameState.hoveredPiece = null;
+    
+    const sq = getSquareAt(Input.mouse.x, Input.mouse.y);
+    if (sq) {
+        gameState.hoveredSq = sq;
+        gameState.hoveredPiece = sq.p;
+    }
+    
+    // Double-click to auto-aim at nearest enemy
+    if (Input.mouse.dclick) {
+        const aimSq = findNearestEnemySq();
+        if (aimSq) {
+            autoAimAndShoot(aimSq);
+            return;
+        }
+    }
+    
+    // Single-click on highlighted square to move/attack
+    if (Input.mouse.pressed && !justMoved) {
         if (sq && sq.highlight) {
             const targetPiece = sq.p;
             const isEnemy = targetPiece && targetPiece.bad && !targetPiece.inert;
 
             if (isEnemy) {
-                // Blade attack - don't move, just attack
+                // Blade attack
                 bladeAttack(targetPiece, function() {
-                    // After blade attack, can still aim and shoot
                     ctrlMode = 'aim';
                     showShootRange();
                     justMoved = true;
@@ -495,6 +519,38 @@ function handleMoveInput() {
             }
         }
     }
+}
+
+function findNearestEnemySq() {
+    if (!hero || !hero.sq) return null;
+    let nearest = null;
+    let minDist = Infinity;
+    for (let i = 0; i < bads.length; i++) {
+        const b = bads[i];
+        if (b.dead || b.inert) continue;
+        const dist = Math.abs(b.sq.px - hero.sq.px) + Math.abs(b.sq.py - hero.sq.py);
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = b.sq;
+        }
+    }
+    return nearest;
+}
+
+function autoAimAndShoot(targetSq) {
+    if (!hero || !targetSq) return;
+    // Set aim target and fire
+    ctrlMode = 'aim';
+    showShootRange();
+    // Auto-fire at target
+    wait(5, function() {
+        if (chamber > 0) {
+            fire();
+            if (chamber <= 0) {
+                wait(20, endPlayerTurn);
+            }
+        }
+    });
 }
 
 function bladeAttack(target, cb) {
@@ -570,37 +626,52 @@ function handleLevelUpInput() {
     if (!leveling || !leveling.choices) return;
     
     const choices = leveling.choices;
-    const cardW = 24;
-    const cardH = 32;
-    const totalW = choices.length * (cardW + 8) - 8;
+    const cardW = 40;
+    const cardH = 48;
+    const gap = 12;
+    const totalW = choices.length * (cardW + gap) - gap;
     const startX = (MCW - totalW) / 2;
-    const startY = MCH / 2 - cardH / 2;
+    const startY = MCH / 2 - cardH / 2 - 10;
     
-    // Click to select
-    if (Input.mouse.pressed) {
-        for (let i = 0; i < choices.length; i++) {
-            const x = startX + i * (cardW + 8);
-            if (Input.mouseInRect(x, startY, cardW, cardH)) {
-                selectLevelUpCard(i);
-                return;
-            }
+    // Track hover index for description display
+    leveling.hoverIdx = -1;
+    for (let i = 0; i < choices.length; i++) {
+        const x = startX + i * (cardW + gap);
+        if (Input.mouseInRect(x, startY, cardW, cardH)) {
+            leveling.hoverIdx = i;
+            break;
         }
     }
     
-    // Keyboard selection
-    if (btnp('validate')) {
-        selectLevelUpCard(0);
+    // Double-click to select
+    if (Input.mouse.dclick && leveling.hoverIdx >= 0) {
+        selectLevelUpCard(leveling.hoverIdx);
+        return;
+    }
+    
+    // Keyboard selection (1-9)
+    for (let k = 1; k <= 9 && k <= choices.length; k++) {
+        if (btnp('key' + k)) {
+            selectLevelUpCard(k - 1);
+            return;
+        }
+    }
+    if (btnp('validate') && leveling.hoverIdx >= 0) {
+        selectLevelUpCard(leveling.hoverIdx);
     }
 }
 
 function selectLevelUpCard(index) {
     if (!leveling || !leveling.choices) return;
     const card = leveling.choices[index];
+    const cb = leveling.callback;
+    
+    // Clear leveling state before callback to prevent UI lingering
+    leveling = null;
+    
     sfx('card_land');
     
-    if (leveling.callback) {
-        const cb = leveling.callback;
-        leveling = null;
+    if (cb) {
         cb(card);
     }
 }

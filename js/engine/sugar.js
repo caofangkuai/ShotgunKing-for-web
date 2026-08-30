@@ -756,41 +756,43 @@ const Sugar = {
         this.lprint(str, x, y, c, align);
     },
 
-    // smallPrint - render text at 4px height (like PICO-8 bitmap font)
+    // smallPrint - render text at readable pixel font size
     // Used for button labels and UI elements that need compact text
     smallPrint(str, x, y, c, align) {
         if (c === undefined) c = 7;
         str = String(str);
         const ctx = this.getTargetCtx();
 
+        const f = this.fonts[this.currentFont];
+        const fontSize = (f && f.sz) || 8;
+
         let rx = x;
         if (align === 1) { // center
-            rx = x - this.txtwidth4px(str) / 2;
+            rx = x - this.txtwidthSmall(str, fontSize) / 2;
         } else if (align === 2) { // right
-            rx = x - this.txtwidth4px(str);
+            rx = x - this.txtwidthSmall(str, fontSize);
         }
 
         rx = Math.floor(rx);
         const ty = Math.floor(y + this.camY);
         const tx = Math.floor(rx + this.camX);
 
-        // Use 4px font size
         const savedFont = ctx.font;
-        ctx.font = '4px monospace';
+        ctx.font = `${fontSize}px "${f ? f.name : 'monospace'}"`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillStyle = this.getColor(c);
-        ctx.fillText(str, tx, ty);
+        ctx.fillText(str, tx, ty + (f ? f.dy : 0));
         ctx.font = savedFont;
 
         return rx;
     },
 
-    // Measure text width at 4px size
-    txtwidth4px(str) {
+    // Measure text width at small font size
+    txtwidthSmall(str, sz) {
         const ctx = this.getTargetCtx();
         const savedFont = ctx.font;
-        ctx.font = '4px monospace';
+        ctx.font = `${sz || 8}px monospace`;
         const w = ctx.measureText(str).width;
         ctx.font = savedFont;
         return w;
@@ -962,7 +964,7 @@ function bprint(str, x, y, c, align) { Sugar.bprint(str, x, y, c, align); }
 function print(str, x, y, c, align) { Sugar.print(str, x, y, c, align); }
 function smallPrint(str, x, y, c, align) { return Sugar.smallPrint(str, x, y, c, align); }
 function txtwidth(str) { return Sugar.txtwidth(str); }
-function txtwidth4px(str) { return Sugar.txtwidth4px(str); }
+function txtwidthSmall(str, sz) { return Sugar.txtwidthSmall(str, sz); }
 function font(name) { return Sugar.font(name); }
 
 // Math
