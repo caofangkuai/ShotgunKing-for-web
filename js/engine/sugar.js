@@ -763,7 +763,7 @@ const Sugar = {
         const ctx = this.getTargetCtx();
 
         // Use a fixed readable size that fits in buttons
-        const fontSize = 10;
+        const fontSize = 8;
         const fontName = 'monospace';
 
         let rx = x;

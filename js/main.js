@@ -123,14 +123,20 @@ async function loadAllSpritesheets() {
         { name: 'crumble', src: 'assets/gfx/crumble.png' },
         { name: 'tutorial', src: 'assets/gfx/tutorial.png' },
     ];
-    
+
+    const totalFiles = spritesheets.length;
+    let loadedCount = 0;
+    const updateProgress = () => {
+        loadedCount++;
+        loadingProgress = (loadedCount / totalFiles) * 0.5;
+    };
+
     const promises = [];
     for (const ss of spritesheets) {
-        promises.push(Sugar.loadSpritesheet(ss.name, ss.src));
+        promises.push(Sugar.loadSpritesheet(ss.name, ss.src).then(updateProgress));
     }
-    
+
     await Promise.all(promises);
-    loadingProgress = 0.5;
 }
 
 async function loadAllAudio() {
@@ -162,23 +168,30 @@ async function loadAllAudio() {
         'hypno_execute', 'hypnosys', 'inc_countdown', 'conscription',
         'holo_vanish', 'caltrops',
     ];
-    
+
     const musicFiles = [
         'title_A', 'title_B', 'ingame', 'boss_A', 'boss_B', 'boss_queen_A',
         'boss_queen_B', 'boss_riders_A', 'boss_riders_B', 'chase', 'codex',
         'ending_A', 'ending_B', 'endless', 'final_countdown', 'fireplace',
         'gameover', 'gameover_w_fx', 'level_up_A', 'level_up_B',
     ];
-    
-    // Load ALL audio files in PARALLEL
+
+    // Load ALL audio files in PARALLEL with progress tracking
+    const totalFiles = sfxFiles.length + musicFiles.length;
+    let loadedCount = 0;
+    const updateProgress = () => {
+        loadedCount++;
+        loadingProgress = 0.5 + (loadedCount / totalFiles) * 0.5;
+    };
+
     const promises = [];
     for (const name of sfxFiles) {
-        promises.push(AudioManager.loadSfx(name, `assets/sfx/${name}.wav`));
+        promises.push(AudioManager.loadSfx(name, `assets/sfx/${name}.wav`).then(updateProgress));
     }
     for (const name of musicFiles) {
-        promises.push(AudioManager.loadMusic(name, `assets/music/${name}.mp3`));
+        promises.push(AudioManager.loadMusic(name, `assets/music/${name}.mp3`).then(updateProgress));
     }
-    
+
     await Promise.all(promises);
 }
 
@@ -297,18 +310,26 @@ function _draw() {
         cls(0);
         // Use Canvas API directly (not pico font which may not be loaded yet)
         const ctx = Sugar.ctx;
-        ctx.fillStyle = '#C2C3C7'; // PICO-8 color 6 (light gray)
+        const barW = 160;
+        const barH = 10;
+        const barX = (320 - barW) / 2;
+        const barY = 90;
+        // Label
+        ctx.fillStyle = '#C2C3C7';
         ctx.font = '10px monospace';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('LOADING...', 160, 90);
-        // Draw a simple progress bar
-        ctx.fillStyle = '#5F574F'; // color 5 (dark gray)
-        ctx.fillRect(100, 100, 120, 8);
-        ctx.fillStyle = '#00E436'; // color 11 (green)
-        ctx.fillRect(100, 100, 40, 8); // partial fill
-        ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
+        ctx.fillText('LOADING...', 160, barY - 14);
+        // Bar background
+        ctx.fillStyle = '#5F574F';
+        ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+        ctx.fillStyle = '#1d2b53';
+        ctx.fillRect(barX, barY, barW, barH);
+        // Animated fill (indeterminate)
+        const animOffset = (Date.now() / 20) % 40;
+        ctx.fillStyle = '#00E436';
+        ctx.fillRect(barX + animOffset, barY, 40, barH);
+        ctx.textAlign = 'left';
         return;
     }
     
@@ -316,21 +337,25 @@ function _draw() {
     if (loadingPhase !== 'done') {
         cls(0);
         // Draw loading bar
-        const barW = 120;
-        const barH = 8;
+        const barW = 160;
+        const barH = 10;
         const barX = (320 - barW) / 2;
         const barY = 90;
         const label = loadingPhase === 'sprites' ? 'LOADING GRAPHICS...' : 'LOADING AUDIO...';
-        // Use small font for loading label to prevent overlap
         const txtW = txtwidthSmall(label, 8);
-        smallPrint(label, (320 - txtW) / 2, barY - 12, 6);
+        smallPrint(label, (320 - txtW) / 2, barY - 14, 6);
+        // Bar background
         rectfill(barX - 1, barY - 1, barX + barW + 1, barY + barH + 1, 5);
         rectfill(barX, barY, barX + barW, barY + barH, 1);
-        if (loadingPhase === 'sprites') {
-            rectfill(barX, barY, barX + barW * loadingProgress * 2, barY + barH, 11);
-        } else {
-            rectfill(barX, barY, barX + barW, barY + barH, 11);
+        // Bar fill
+        const fillW = Math.floor(barW * loadingProgress);
+        if (fillW > 0) {
+            rectfill(barX, barY, barX + fillW, barY + barH, 11);
         }
+        // Percentage text
+        const pct = Math.floor(loadingProgress * 100) + '%';
+        const pctW = txtwidthSmall(pct, 8);
+        smallPrint(pct, (320 - pctW) / 2, barY + barH + 4, 6);
         return;
     }
     
