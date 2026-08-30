@@ -1648,9 +1648,22 @@ function drawAimVisualization() {
 
     const heroX = hero.x + 8;
     const heroY = hero.y + 8;
-    const aimAngle = hero.an;
+    // Convert PICO-8 angle to radians (0=right, 0.25=down in PICO-8)
+    const aimRad = hero.an * Math.PI * 2;
     const range = getFirerange() * SQ;
-    const spreadRad = (getSpread() / 360) * Math.PI * 2; // convert degrees to radians
+    const spreadRad = (getSpread() / 360) * Math.PI * 2;
+
+    // Calculate end point, clamped to board boundaries
+    let endX = heroX + Math.cos(aimRad) * range;
+    let endY = heroY - Math.sin(aimRad) * range; // invert Y for PICO-8 coords
+
+    // Clamp to board bounds
+    const minX = board.x;
+    const maxX = board.x + 8 * SQ;
+    const minY = board.y;
+    const maxY = board.y + 8 * SQ;
+    endX = Math.max(minX, Math.min(maxX, endX));
+    endY = Math.max(minY, Math.min(maxY, endY));
 
     // Draw scatter arc (cone)
     const ctx = Sugar.ctx;
@@ -1663,12 +1676,14 @@ function drawAimVisualization() {
     ctx.beginPath();
     ctx.moveTo(heroX, heroY);
     const segments = 12;
-    const startAngle = aimAngle - spreadRad / 2;
-    const endAngle = aimAngle + spreadRad / 2;
+    const startAngle = aimRad - spreadRad / 2;
+    const endAngle = aimRad + spreadRad / 2;
     for (let i = 0; i <= segments; i++) {
         const a = startAngle + (endAngle - startAngle) * (i / segments);
-        const px = heroX + Math.cos(a) * range;
-        const py = heroY + Math.sin(a) * range;
+        let px = heroX + Math.cos(a) * range;
+        let py = heroY - Math.sin(a) * range; // invert Y
+        px = Math.max(minX, Math.min(maxX, px));
+        py = Math.max(minY, Math.min(maxY, py));
         ctx.lineTo(px, py);
     }
     ctx.closePath();
@@ -1679,9 +1694,17 @@ function drawAimVisualization() {
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(heroX, heroY);
-    ctx.lineTo(heroX + Math.cos(startAngle) * range, heroY + Math.sin(startAngle) * range);
+    let edgeX = heroX + Math.cos(startAngle) * range;
+    let edgeY = heroY - Math.sin(startAngle) * range;
+    edgeX = Math.max(minX, Math.min(maxX, edgeX));
+    edgeY = Math.max(minY, Math.min(maxY, edgeY));
+    ctx.lineTo(edgeX, edgeY);
     ctx.moveTo(heroX, heroY);
-    ctx.lineTo(heroX + Math.cos(endAngle) * range, heroY + Math.sin(endAngle) * range);
+    edgeX = heroX + Math.cos(endAngle) * range;
+    edgeY = heroY - Math.sin(endAngle) * range;
+    edgeX = Math.max(minX, Math.min(maxX, edgeX));
+    edgeY = Math.max(minY, Math.min(maxY, edgeY));
+    ctx.lineTo(edgeX, edgeY);
     ctx.stroke();
 
     // Draw center aim line
@@ -1690,7 +1713,7 @@ function drawAimVisualization() {
     ctx.setLineDash([3, 3]);
     ctx.beginPath();
     ctx.moveTo(heroX, heroY);
-    ctx.lineTo(heroX + Math.cos(aimAngle) * range, heroY + Math.sin(aimAngle) * range);
+    ctx.lineTo(endX, endY);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -1749,7 +1772,7 @@ function getPieceAttackRange(piece) {
         var b = piece.behavior[i];
         if (b.atk) {
             if (b.id === 'line') {
-                maxRange = Math.max(maxRange, b[3] || 8);
+                maxRange = Math.max(maxRange, b.range || 8);
             } else if (b.id === 'jump') {
                 maxRange = Math.max(maxRange, 2);
             }
@@ -1758,23 +1781,37 @@ function getPieceAttackRange(piece) {
     return maxRange;
 }
 
-// Highlight squares that a piece can attack
+// Draw semi-transparent filled rectangle
+function fillTransparent(x, y, w, h, color, alpha) {
+    const ctx = Sugar.ctx;
+    const os = Sugar.overlayScale;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = Sugar.getColor(color);
+    ctx.fillRect(
+        Math.floor(x * os),
+        Math.floor(y * os),
+        Math.ceil(w * os),
+        Math.ceil(h * os)
+    );
+    ctx.restore();
+}
+
+// Highlight squares that a piece can attack (filled highlight)
 function highlightAttackRange(piece) {
     if (!piece || !piece.sq || !piece.behavior) return;
 
     spritesheet('gfx');
     var sq = piece.sq;
-    var pieceX = board.x + sq.px * SQ + SQ / 2;
-    var pieceY = board.y + sq.py * SQ + SQ / 2;
 
     for (var i = 0; i < piece.behavior.length; i++) {
         var b = piece.behavior[i];
         if (!b.atk) continue;
 
         if (b.id === 'line') {
-            var dirStart = b[1];
-            var dirEnd = b[2];
-            var maxRange = b[3] || 8;
+            var dirStart = b.a;
+            var dirEnd = b.b;
+            var maxRange = b.range || 8;
             for (var d = dirStart; d <= dirEnd; d++) {
                 var dx = DIRS[d * 2];
                 var dy = DIRS[d * 2 + 1];
@@ -1786,21 +1823,26 @@ function highlightAttackRange(piece) {
                     if (!targetSq) break;
                     var sx = board.x + tx * SQ;
                     var sy = board.y + ty * SQ;
-                    rect(sx + 2, sy + 2, sx + SQ - 3, sy + SQ - 3, 8);
+                    // Fill square with semi-transparent red
+                    fillTransparent(sx + 2, sy + 2, SQ - 4, SQ - 4, 8, 0.4);
                     if (targetSq.p) break; // blocked by piece
                 }
             }
         } else if (b.id === 'jump') {
-            // Knight-style jumps: pairs of x,y offsets
-            for (var j = 4; j < b.length; j += 2) {
-                var jx = b[j];
-                var jy = b[j + 1];
-                var tx = sq.px + jx;
-                var ty = sq.py + jy;
-                if (tx >= 0 && tx < 8 && ty >= 0 && ty < 8) {
-                    var sx = board.x + tx * SQ;
-                    var sy = board.y + ty * SQ;
-                    rect(sx + 2, sy + 2, sx + SQ - 3, sy + SQ - 3, 8);
+            // Knight-style jumps: pairs of x,y offsets from b.moves array
+            var moves = b.moves;
+            if (moves) {
+                for (var j = 0; j < moves.length; j += 2) {
+                    var jx = moves[j];
+                    var jy = moves[j + 1];
+                    var tx = sq.px + jx;
+                    var ty = sq.py + jy;
+                    if (tx >= 0 && tx < 8 && ty >= 0 && ty < 8) {
+                        var sx = board.x + tx * SQ;
+                        var sy = board.y + ty * SQ;
+                        // Fill square with semi-transparent red
+                        fillTransparent(sx + 2, sy + 2, SQ - 4, SQ - 4, 8, 0.4);
+                    }
                 }
             }
         }
