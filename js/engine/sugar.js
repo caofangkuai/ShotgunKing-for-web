@@ -113,8 +113,6 @@ const Sugar = {
         // Update canvas rect for input
         this.canvasRect = this.canvas.getBoundingClientRect();
         
-        // Check landscape
-        this.checkOrientation();
     },
     
 
