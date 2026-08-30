@@ -1366,26 +1366,34 @@ function drawPiece(e, x, y) {
 
     if (e === hero) {
         // === HERO (Black King) ===
-        // Draw body with PDY offset (like Lua)
+        // Use spr() with correct sprite index (like Lua spr(16+tp, ...))
+        // Hero is type 5 (king), so sprite index = 16 + 5 = 21
+        const heroSprIdx = 16 + 5; // 21
         const bodyX = x + shx;
         const bodyY = y + dz + PDY;
 
+        // Draw shadow (depth effect) - like Lua shpr(20,12,7,4,...)
+        if (dz > -1) {
+            sspr(20, 12, 7, 4, bodyX + 4, bodyY + 13 + PDY);
+        }
+
         if (isHurt && Math.floor(e.cHit / 4) % 2 === 0) {
             pal(7, 8);
-            sspr(176, 0, 16, 16, bodyX, bodyY);
+            spr(heroSprIdx, bodyX, bodyY);
             palRst();
         } else {
-            sspr(176, 0, 16, 16, bodyX, bodyY);
+            spr(heroSprIdx, bodyX, bodyY);
         }
 
         // Draw head (king crown) - animated based on angle
+        // Head sprites at row 4 (y=64), each 8x8
         const an = hero.an || 0;
-        const headIdx = Math.floor(((an % 1) + 1) % 1 * 8) % 8;
+        const headIdx = ((Math.floor(((an % 1) + 1) % 1 * 8)) % 8 + 8) % 8;
         sspr(56 + headIdx * 8, 64, 8, 8, bodyX + 4, bodyY - 3);
 
         // Draw shotgun (in front of piece) - like Lua draw_shotgun
         if ((!mode || !mode.noShotgun) && chamber > 0) {
-            // shotgun sprite at (32,0) size 16x16, drawn at center-bottom
+            // shotgun sprite at (32,0) size 12x16, drawn at center-bottom
             sspr(32, 0, 12, 16, bodyX + 8, bodyY + 8);
         }
 
@@ -1403,28 +1411,31 @@ function drawPiece(e, x, y) {
         const bodyY = y + dz + PDY;
         const tp = e.type;
 
-        // Body sprite coordinates from spritesheet
-        // Each piece type has a 16x16 sprite at (176 + type*16, 192)
-        const spx = 176 + tp * 16;
-        let spy = 192;
-        if (e.iron) spy = 208;
+        // Use spr() with correct sprite index (like Lua spr(16+tp, ...))
+        // Sprite index = 16 + type
+        let sprIdx = 16 + tp;
+        if (e.iron) {
+            // Iron pieces use sprite at tp + 12*16 + 11 (from Lua)
+            sprIdx = 16 + tp + 12 * 16 + 11;
+        }
 
-        // Draw shadow (depth effect) - like Lua
+        // Draw shadow (depth effect) - like Lua shpr(20,12,7,4,...)
         if (dz > -1) {
-            circfill(bodyX + 8, bodyY + 13 + PDY, 5, 0);
+            sspr(20, 12, 7, 4, bodyX + 4, bodyY + 13 + PDY);
         }
 
         // Draw body with hurt flash
         if (isHurt && Math.floor(e.cHit / 4) % 2 === 0) {
             pal(7, 8);
-            sspr(spx, spy, 16, 16, bodyX, bodyY);
+            spr(sprIdx, bodyX, bodyY);
             palRst();
         } else {
-            sspr(spx, spy, 16, 16, bodyX, bodyY);
+            spr(sprIdx, bodyX, bodyY);
         }
 
-        // Draw head for king pieces
+        // Draw head for king pieces (type 5)
         if (tp === 5) {
+            // King head at (112, 56) size 8x8
             sspr(112, 56, 8, 8, bodyX + 4, bodyY - 3);
         }
 
