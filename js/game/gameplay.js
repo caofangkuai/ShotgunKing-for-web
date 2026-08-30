@@ -1646,33 +1646,28 @@ function drawUI() {
 function drawAimVisualization() {
     if (!hero || !hero.sq) return;
 
-    // Center on hero piece (no camera offset - draw directly on board)
-    const heroX = hero.x + SQ / 2;
-    const heroY = hero.y + SQ / 2;
-    // Convert PICO-8 angle to radians (0=right, 0.25=down in PICO-8)
+    const camX = Sugar.camX;
+    const camY = Sugar.camY;
+
+    const heroX = hero.x + SQ / 2 + camX;
+    const heroY = hero.y + SQ / 2 + camY;
     const aimRad = hero.an * Math.PI * 2;
     const range = getFirerange() * SQ;
     const spreadRad = (getSpread() / 360) * Math.PI * 2;
 
-    // Board bounds
-    const minX = board.x;
-    const maxX = board.x + 8 * SQ;
-    const minY = board.y;
-    const maxY = board.y + 8 * SQ;
+    const minX = board.x + camX;
+    const maxX = board.x + 8 * SQ + camX;
+    const minY = board.y + camY;
+    const maxY = board.y + 8 * SQ + camY;
 
-    // Calculate end point, clamped to board boundaries
     let endX = heroX + Math.cos(aimRad) * range;
-    let endY = heroY - Math.sin(aimRad) * range; // invert Y for PICO-8 coords
+    let endY = heroY - Math.sin(aimRad) * range;
     endX = Math.max(minX, Math.min(maxX, endX));
     endY = Math.max(minY, Math.min(maxY, endY));
 
-    // Draw scatter arc (cone)
     const ctx = Sugar.ctx;
-    const os = Sugar.overlayScale;
     ctx.save();
-    ctx.scale(os, os);
 
-    // Draw scatter cone as filled arc
     ctx.fillStyle = 'rgba(255, 0, 77, 0.15)';
     ctx.beginPath();
     ctx.moveTo(heroX, heroY);
@@ -1682,7 +1677,7 @@ function drawAimVisualization() {
     for (let i = 0; i <= segments; i++) {
         const a = startAngle + (endAngle - startAngle) * (i / segments);
         let px = heroX + Math.cos(a) * range;
-        let py = heroY - Math.sin(a) * range; // invert Y
+        let py = heroY - Math.sin(a) * range;
         px = Math.max(minX, Math.min(maxX, px));
         py = Math.max(minY, Math.min(maxY, py));
         ctx.lineTo(px, py);
@@ -1690,7 +1685,6 @@ function drawAimVisualization() {
     ctx.closePath();
     ctx.fill();
 
-    // Draw scatter cone edges
     ctx.strokeStyle = 'rgba(255, 0, 77, 0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1708,7 +1702,6 @@ function drawAimVisualization() {
     ctx.lineTo(edgeX, edgeY);
     ctx.stroke();
 
-    // Draw center aim line
     ctx.strokeStyle = '#ff004d';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
@@ -1788,15 +1781,14 @@ function getPieceAttackRange(piece) {
 // Draw semi-transparent filled rectangle (in board coords, no camera offset)
 function fillTransparent(x, y, w, h, color, alpha) {
     const ctx = Sugar.ctx;
-    const os = Sugar.overlayScale;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = Sugar.getColor(color);
     ctx.fillRect(
-        Math.floor(x * os),
-        Math.floor(y * os),
-        Math.ceil(w * os),
-        Math.ceil(h * os)
+        Math.floor(x + Sugar.camX),
+        Math.floor(y + Sugar.camY),
+        Math.ceil(w),
+        Math.ceil(h)
     );
     ctx.restore();
 }

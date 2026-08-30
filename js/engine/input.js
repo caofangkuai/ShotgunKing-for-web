@@ -98,6 +98,18 @@ const Input = {
             this.mouse.y = pos.y;
             this.mouse.down = true;
             this.mouse.pressed = true;
+
+            // Double-tap detection for touch
+            const now = Date.now();
+            const dx = pos.x - this._lastClickX;
+            const dy = pos.y - this._lastClickY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (now - this._lastClickTime < this._dclickThreshold && dist < this._dclickDist) {
+                this.mouse.dclick = true;
+            }
+            this._lastClickTime = now;
+            this._lastClickX = pos.x;
+            this._lastClickY = pos.y;
         }
     },
     

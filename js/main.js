@@ -403,16 +403,17 @@ function _draw() {
 // === HERO AIM UPDATE ===
 function updateHeroAim() {
     if (!hero || hero.dead || !playing) return;
-    
+
     // Update aim angle from mouse position
+    // atan2 uses PICO-8 convention (positive Y = UP), screen coords have positive Y = DOWN
     if (Input.mouse.x !== 0 || Input.mouse.y !== 0) {
         const dx = Input.mouse.x - (hero.x + 8);
         const dy = Input.mouse.y - (hero.y + 8);
         if (dx !== 0 || dy !== 0) {
-            hero.an = atan2(dy, dx);
+            hero.an = atan2(-dy, dx);
         }
     }
-    
+
     // Update distance calculations
     traceHerosDists();
 }
@@ -464,24 +465,22 @@ function handleGameInput() {
 
 function handleMoveInput() {
     if (!hero || !hero.sq) return;
-    
+
     // Track hovered square for info display
     gameState.hoveredSq = null;
     gameState.hoveredPiece = null;
-    
+
     const sq = getSquareAt(Input.mouse.x, Input.mouse.y);
     if (sq) {
         gameState.hoveredSq = sq;
         gameState.hoveredPiece = sq.p;
     }
-    
-    // Single-click on highlighted empty square to move only (no attack)
-    if (Input.mouse.down && !Input._prevDown) {
+
+    // Single-click on highlighted empty square to move (stay in move mode)
+    if (Input.mouse.pressed) {
         if (sq && sq.highlight && !sq.p) {
-            // Move hero to this square (only if empty)
             moveHero(sq, function() {
-                ctrlMode = 'aim';
-                showShootRange();
+                showValidMoves();
             });
             return;
         }
@@ -504,8 +503,7 @@ function handleMoveInput() {
         const nsq = gsq(hero.sq.px + dx, hero.sq.py + dy);
         if (nsq && nsq.highlight && !nsq.p) {
             moveHero(nsq, function() {
-                ctrlMode = 'aim';
-                showShootRange();
+                showValidMoves();
             });
         }
     }
@@ -581,8 +579,15 @@ function handleAimInput() {
         gameState.hoveredPiece = hoverSq.p;
     }
 
-    // Single click/tap to fire (mobile-friendly)
-    if (Input.mouse.down && !Input._prevDown && chamber > 0) {
+    // Double-click to fire: auto-aim towards click position
+    // Note: atan2 uses PICO-8 convention where positive Y = UP,
+    // but screen coords have positive Y = DOWN, so we flip dy
+    if (Input.mouse.dclick && chamber > 0) {
+        const dx = Input.mouse.x - (hero.x + SQ / 2);
+        const dy = Input.mouse.y - (hero.y + SQ / 2);
+        if (dx !== 0 || dy !== 0) {
+            hero.an = atan2(-dy, dx);
+        }
         fire();
         if (chamber <= 0) {
             wait(20, endPlayerTurn);
