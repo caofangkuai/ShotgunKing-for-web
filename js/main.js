@@ -453,36 +453,21 @@ function handleMoveInput() {
         gameState.hoveredPiece = sq.p;
     }
     
-    // Double-click to auto-aim at nearest enemy
-    if (Input.mouse.dclick) {
-        const aimSq = findNearestEnemySq();
-        if (aimSq) {
-            autoAimAndShoot(aimSq);
-            return;
-        }
+    // Double-click on enemy to aim and shoot at it
+    if (Input.mouse.dclick && sq && sq.p && sq.p.bad && !sq.p.inert) {
+        aimAndFireAt(sq);
+        return;
     }
     
-    // Single-click on highlighted square to move/attack
+    // Single-click on highlighted square to move only (no attack)
     if (Input.mouse.pressed && !justMoved) {
-        if (sq && sq.highlight) {
-            const targetPiece = sq.p;
-            const isEnemy = targetPiece && targetPiece.bad && !targetPiece.inert;
-
-            if (isEnemy) {
-                // Blade attack
-                bladeAttack(targetPiece, function() {
-                    ctrlMode = 'aim';
-                    showShootRange();
-                    justMoved = true;
-                });
-            } else {
-                // Move hero to this square
-                moveHero(sq, function() {
-                    ctrlMode = 'aim';
-                    showShootRange();
-                    justMoved = true;
-                });
-            }
+        if (sq && sq.highlight && !sq.p) {
+            // Move hero to this square (only if empty)
+            moveHero(sq, function() {
+                ctrlMode = 'aim';
+                showShootRange();
+                justMoved = true;
+            });
             return;
         }
         
@@ -502,53 +487,35 @@ function handleMoveInput() {
         if (btnp('down')) dy = 1;
         
         const nsq = gsq(hero.sq.px + dx, hero.sq.py + dy);
-        if (nsq && nsq.highlight) {
-            const targetPiece = nsq.p;
-            const isEnemy = targetPiece && targetPiece.bad && !targetPiece.inert;
-            
-            if (isEnemy) {
-                bladeAttack(targetPiece, function() {
-                    ctrlMode = 'aim';
-                    showShootRange();
-                });
-            } else {
-                moveHero(nsq, function() {
-                    ctrlMode = 'aim';
-                    showShootRange();
-                });
-            }
+        if (nsq && nsq.highlight && !nsq.p) {
+            moveHero(nsq, function() {
+                ctrlMode = 'aim';
+                showShootRange();
+            });
         }
     }
 }
 
-function findNearestEnemySq() {
-    if (!hero || !hero.sq) return null;
-    let nearest = null;
-    let minDist = Infinity;
-    for (let i = 0; i < bads.length; i++) {
-        const b = bads[i];
-        if (b.dead || b.inert) continue;
-        const dist = Math.abs(b.sq.px - hero.sq.px) + Math.abs(b.sq.py - hero.sq.py);
-        if (dist < minDist) {
-            minDist = dist;
-            nearest = b.sq;
-        }
-    }
-    return nearest;
-}
-
-function autoAimAndShoot(targetSq) {
-    if (!hero || !targetSq) return;
-    // Set aim target and fire
+function aimAndFireAt(targetSq) {
+    if (!hero || !targetSq || !targetSq.p) return;
+    const target = targetSq.p;
+    if (!target.bad || target.inert) return;
+    
+    // Set aim target
+    aim = target;
     ctrlMode = 'aim';
     showShootRange();
-    // Auto-fire at target
+    
+    // Auto-fire at target after short delay
     wait(5, function() {
         if (chamber > 0) {
             fire();
             if (chamber <= 0) {
                 wait(20, endPlayerTurn);
             }
+        } else {
+            // No ammo, end turn
+            wait(20, endPlayerTurn);
         }
     });
 }
@@ -626,9 +593,9 @@ function handleLevelUpInput() {
     if (!leveling || !leveling.choices) return;
     
     const choices = leveling.choices;
-    const cardW = 40;
-    const cardH = 48;
-    const gap = 12;
+    const cardW = 48;
+    const cardH = 56;
+    const gap = 16;
     const totalW = choices.length * (cardW + gap) - gap;
     const startX = (MCW - totalW) / 2;
     const startY = MCH / 2 - cardH / 2 - 10;
@@ -649,13 +616,15 @@ function handleLevelUpInput() {
         return;
     }
     
-    // Keyboard selection (1-9)
+    // Keyboard selection (number keys 1-9)
     for (let k = 1; k <= 9 && k <= choices.length; k++) {
-        if (btnp('key' + k)) {
+        if (Input.keysPressed[String(k)]) {
             selectLevelUpCard(k - 1);
             return;
         }
     }
+    
+    // Enter/Space to select hovered card
     if (btnp('validate') && leveling.hoverIdx >= 0) {
         selectLevelUpCard(leveling.hoverIdx);
     }
@@ -669,8 +638,10 @@ function selectLevelUpCard(index) {
     // Clear leveling state before callback to prevent UI lingering
     leveling = null;
     
-    sfx('card_land');
+    // Play sound
+    if (typeof sfx === 'function') sfx('card_land');
     
+    // Execute callback
     if (cb) {
         cb(card);
     }

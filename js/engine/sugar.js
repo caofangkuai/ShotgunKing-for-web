@@ -606,7 +606,17 @@ const Sugar = {
         if (!f) return '8px monospace';
         const fontName = f.name || this.currentFont;
         const fontSize = f.sz || 8;
-        // No explicit fallback - browser handles CJK fallback automatically
+        // Check if font is loaded, fall back to monospace if not
+        if (f.type === 'ttf' && f.loaded === false) {
+            // Try to check if font is available
+            try {
+                if (!document.fonts.check(`${fontSize}px "${fontName}"`)) {
+                    return `${fontSize}px monospace`;
+                }
+            } catch(e) {
+                return `${fontSize}px monospace`;
+            }
+        }
         return `${fontSize}px "${fontName}"`;
     },
     
@@ -756,15 +766,16 @@ const Sugar = {
         this.lprint(str, x, y, c, align);
     },
 
-    // smallPrint - render text at readable pixel font size
+    // smallPrint - render text using canvas fillText with a reliable font
     // Used for button labels and UI elements that need compact text
     smallPrint(str, x, y, c, align) {
         if (c === undefined) c = 7;
         str = String(str);
         const ctx = this.getTargetCtx();
 
-        const f = this.fonts[this.currentFont];
-        const fontSize = (f && f.sz) || 8;
+        // Use a fixed readable size that fits in buttons
+        const fontSize = 8;
+        const fontName = 'monospace';
 
         let rx = x;
         if (align === 1) { // center
@@ -778,11 +789,11 @@ const Sugar = {
         const tx = Math.floor(rx + this.camX);
 
         const savedFont = ctx.font;
-        ctx.font = `${fontSize}px "${f ? f.name : 'monospace'}"`;
+        ctx.font = `${fontSize}px ${fontName}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillStyle = this.getColor(c);
-        ctx.fillText(str, tx, ty + (f ? f.dy : 0));
+        ctx.fillText(str, tx, ty);
         ctx.font = savedFont;
 
         return rx;

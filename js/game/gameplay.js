@@ -1112,7 +1112,50 @@ function oppAtk(atk, def, cb) {
 function endLevel(nxt) {
     timerun = false;
     playing = false;
+    
+    // Ascend remaining enemies (lightning effect in Android)
+    ascendEnemies(function() {
+        // Show win screen after ascend animation
+        showWinScreen(nxt);
+    });
+}
 
+function ascendEnemies(nxt) {
+    const remaining = bads.filter(b => !b.dead && !b.inert);
+    
+    if (remaining.length === 0) {
+        if (nxt) nxt();
+        return;
+    }
+    
+    // Make remaining enemies float up and fade out
+    let completed = 0;
+    const total = remaining.length;
+    
+    for (let i = 0; i < remaining.length; i++) {
+        const e = remaining[i];
+        const delay = i * 5; // Stagger the animation
+        
+        wait(delay, function() {
+            e.ascending = true;
+            const ev = loop(function(ev) {
+                e.z = e.z - 0.3; // Float up
+                e.fade = ev.t > 20 ? (ev.t % 4 < 2) : false; // Blink
+                if (ev.t >= 30) {
+                    kl(ev);
+                    kl(e);
+                    del(bads, e);
+                    completed++;
+                    if (completed >= total && nxt) {
+                        nxt();
+                    }
+                }
+            });
+        });
+    }
+}
+
+function showWinScreen(nxt) {
     // Show win screen
     const winBg = mke(0, 0, 0);
     winBg.dp = DP_TOP;
@@ -1993,6 +2036,84 @@ function applyOption(name) {
     if (name === 'show_danger') {
         showDangerZone = Save.getOpt('show_danger') === 1;
     }
+}
+
+// === VIGNETTE SYSTEM ===
+let vignetteState = null;
+
+function showVignetteSequence(seq, nxt) {
+    if (seq.length === 0) {
+        vignetteState = null;
+        if (nxt) nxt();
+        return;
+    }
+    
+    const id = seq[0];
+    seq.splice(0, 1);
+    
+    // Vignette text (from lang or hardcoded)
+    const vigTexts = {
+        1: "The Black King had been an extravagant and unpleasant ruler. As the years went by, more and more of his subjects were won over by the White King who offered higher wages and genuinely decent work. And then they took his castle. His knights resigned from their service. Even his wife, the Queen, abandoned him.",
+        2: "Before leaving, the last black bishop came to the Black King and told him \"Thou hast been a bad king, yet thyne reign is still holy. Thou shalt retain a claim over thyne former subjects' souls, and we may yet have cause to fear thyne wrath. Thus heed my warning. The wrath of a man, as godly as might thee be, is ever his undoing.\"",
+        3: "But the Black King was abandoned by all, with not a rook left to his name. All he had left was his prized royal shotgun, the shreds of his dignity, and the growing fires of the prophesized wrath. Ever my undoing was it? Undone!! Just what more exactly could I lose?!? In his dark folly, the king loaded the shotgun and went to meet his final checkmate.",
+    };
+    
+    const desc = vigTexts[id] || '';
+    
+    // Create vignette background
+    const vbg = mke(0, 0, 0);
+    vbg.dp = DP_TOP;
+    vbg.dr = function() {
+        rectfill(0, 0, MCW, MCH, 0);
+    };
+    
+    // Create vignette entity
+    const e = mke(0, 0, 16);
+    e.dp = DP_TOP;
+    let tt = 0;
+    let fast = false;
+    let leaving = false;
+    const slideTempo = 32;
+    const textSpeed = 0.5;
+    
+    e.upd = function() {
+        if (leaving) return;
+        
+        tt += fast ? 5 : textSpeed;
+        
+        if (Input.mouse.pressed) {
+            Input.mouse.pressed = false;
+            if (fast || tt > slideTempo) {
+                leaving = true;
+                wait(10, function() {
+                    kl(e);
+                    kl(vbg);
+                    showVignetteSequence(seq, nxt);
+                });
+            } else {
+                fast = true;
+            }
+        }
+    };
+    
+    e.dr = function(e, px, py) {
+        // Draw vignette image from intro spritesheet
+        spritesheet('intro');
+        const vw = 128, vh = 64;
+        const x = (MCW - vw) / 2;
+        const y = 16;
+        rectfill(x, y, x + vw - 1, y + vh - 1, 5);
+        sspr(0, id * vh - vh, vw, vh, x, y);
+        spritesheet('gfx');
+        
+        // Draw text with typewriter effect
+        const sw = 128 + 64;
+        const lim = Math.max(tt - slideTempo / 2, 0);
+        const cy = 96;
+        pprint(desc, (MCW - sw) / 2, cy, sw, 4, 0, lim);
+    };
+    
+    vignetteState = { vbg: vbg, entity: e };
 }
 
 // === UTILITY ===

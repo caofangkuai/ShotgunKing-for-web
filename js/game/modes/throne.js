@@ -43,9 +43,6 @@ const ThroneMode = {
     },
     
     start() {
-        // Intro sequence (simplified - just start the game)
-        this.intro = false;
-        
         // Save current selections
         if (Save.data.prog.throne) {
             Save.data.prog.throne.rank_sel = this.ranksIndex;
@@ -53,20 +50,28 @@ const ThroneMode = {
             Save.save();
         }
         
-        // Init game
-        initGame();
-        this.lvl = 0;
-        this.turns = 0;
-        
-        // Build card slots
-        cardSlots = new Array(10).fill(null);
-        cards = { pool: [] };
-        
-        // Build initial card pool
-        this.buildCardPool();
-        
-        // Start first floor
-        this.nextFloor();
+        // Show intro vignette sequence
+        if (this.intro) {
+            this.intro = false;
+            showVignetteSequence([1, 2, 3], () => {
+                initGame();
+                this.lvl = 0;
+                this.turns = 0;
+                cardSlots = new Array(10).fill(null);
+                cards = { pool: [] };
+                this.buildCardPool();
+                this.nextFloor();
+            });
+        } else {
+            // Skip intro, start directly
+            initGame();
+            this.lvl = 0;
+            this.turns = 0;
+            cardSlots = new Array(10).fill(null);
+            cards = { pool: [] };
+            this.buildCardPool();
+            this.nextFloor();
+        }
     },
     
     buildCardPool() {
