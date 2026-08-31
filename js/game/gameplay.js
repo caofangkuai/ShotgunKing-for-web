@@ -1539,11 +1539,6 @@ function getFreeCardSlot(ca) {
     return null;
 }
 
-function showCardSelection(choices, cb) {
-    // This will be handled by the menu system
-    leveling = { choices: choices, callback: cb };
-}
-
 // === GAME OVER ===
 function gameover(cbk) {
     if (mode && mode.onHeroDeath) {
@@ -2159,11 +2154,11 @@ function drawCardsPanel() {
         }
     }
 
-    // Left side: player card slots (team 0) - 2 columns x 5 rows (vertical)
+    // Left side: player card slots - 2 cols x 5 rows, left-to-right then top-to-bottom
     for (let i = 0; i < perSide; i++) {
         const sl = playerSlots[i];
-        const col = Math.floor(i / rows);
-        const row = i % rows;
+        const row = Math.floor(i / cols);
+        const col = i % cols;
         const cx = col * cardW;
         const cy = startY + row * cardH;
 
@@ -2191,11 +2186,11 @@ function drawCardsPanel() {
         }
     }
 
-    // Right side: enemy card slots (team 1) - 2 columns x 5 rows (vertical)
+    // Right side: enemy card slots - 2 cols x 5 rows, left-to-right then top-to-bottom
     for (let i = 0; i < perSide; i++) {
         const sl = enemySlots[i];
-        const col = Math.floor(i / rows);
-        const row = i % rows;
+        const row = Math.floor(i / cols);
+        const col = i % cols;
         const cx = MCW - (cols - col) * cardW;
         const cy = startY + row * cardH;
 
