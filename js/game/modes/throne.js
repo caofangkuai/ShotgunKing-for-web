@@ -93,13 +93,13 @@ const ThroneMode = {
         if (this.lvl < 11) {
             const data = {
                 id: 'level_up',
-                pan_xm: 2,
-                pan_ym: 1,
-                pan_width: 120,
-                pan_height: 60,
+                pan_xm: 1,
+                pan_ym: 2,
+                pan_width: 96,
+                pan_height: 96,
                 choices: [
-                    [{ team: 0 }, { team: 0 }],
-                    [{ team: 1 }, { team: 1 }],
+                    [{ team: 0 }, { team: 1 }],
+                    [{ team: 0 }, { team: 1 }],
                 ],
             };
             levelUp(data, () => this.nextFloor());

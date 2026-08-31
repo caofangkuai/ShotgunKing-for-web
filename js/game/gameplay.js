@@ -1425,34 +1425,37 @@ function showWinScreen(nxt) {
 function levelUp(data, nxt) {
     leveling = true;
 
-    // Panel layout: 2 columns x 1 row (left = player, right = enemy)
-    const panXm = 2;
-    const panYm = 1;
-    const panWidth = 120;
-    const panHeight = 60;
-    const ec = 8; // gap between panels
+    // Layout matches Lua: pan_xm=1, pan_ym=2 (1 column x 2 rows = two choice groups stacked)
+    const panXm = 1;
+    const panYm = 2;
+    const panWidth = 96;
+    const panHeight = 96;
+    const ec = 4;
 
     const sx = boardX + (128 - panWidth) / 2;
     const sy = boardY + (128 - panHeight) / 2;
     const pw = (panWidth - (panXm - 1) * ec) / panXm;
     const ph = (panHeight - (panYm - 1) * ec) / panYm;
 
-    // Build panel choices: each panel has card slots with team constraints
-    // Panel 0 (left): player cards (team 0), Panel 1 (right): enemy cards (team 1)
+    // Each choice group has {{team=0},{team=1}}: player card (left) + enemy card (right)
+    const choiceDefs = data.choices || [[{team:0},{team:1}], [{team:0},{team:1}]];
+
     const panels = [];
-    for (let px = 0; px < panXm; px++) {
+    for (let py = 0; py < panYm; py++) {
+        const px = py; // choice index
+        const cardsSetup = choiceDefs[px] || [{team:0},{team:1}];
         const panelCards = [];
-        const team = px === 0 ? 0 : 1; // Panel 0 = player (team 0), Panel 1 = enemy (team 1)
-        const numCards = 2; // Each panel shows 2 cards side by side
-        for (let i = 0; i < numCards; i++) {
+
+        for (const cons of cardsSetup) {
+            const team = cons.team || 0;
             const card = pickCard(team);
             if (card) panelCards.push(card);
         }
+
         panels.push({
             cards: panelCards,
-            team: team,
-            x: sx + px * (pw + ec),
-            y: sy,
+            x: sx,
+            y: sy + py * (ph + ec),
             w: pw,
             h: ph,
             hovered: false,
@@ -1460,13 +1463,13 @@ function levelUp(data, nxt) {
         });
     }
 
-    // Store leveling state with panel data
+    // Store leveling state
     leveling = {
         panels: panels,
         panWidth: pw,
         panHeight: ph,
         callback: function(selectedPanel) {
-            // Add all cards from selected panel
+            // Add ALL cards from selected group (both player and enemy cards)
             if (selectedPanel) {
                 for (const card of selectedPanel.cards) {
                     addCard(card);
@@ -1523,10 +1526,11 @@ function addCard(ca, nxt) {
 }
 
 function getFreeCardSlot(ca) {
-    const perSide = 10; // 5 columns x 2 rows per side
+    const perSide = 10; // 10 slots per side
     const team = ca.team || 0;
-    // Player cards (team 0) use slots 0-9, enemy cards (team 1) use slots 10-19
-    const start = team === 0 ? 0 : perSide;
+    // team=1 (white/player cards) → slots 0-9
+    // team=0 (black/enemy cards) → slots 10-19
+    const start = team === 1 ? 0 : perSide;
     for (let i = start; i < start + perSide; i++) {
         if (!cardSlots[i] || !cardSlots[i].ca) {
             return i;
@@ -2149,8 +2153,9 @@ function drawCardsPanel() {
     for (let i = 0; i < cardSlots.length; i++) {
         const sl = cardSlots[i];
         if (sl && sl.ca) {
-            if (sl.ca.team === 1) enemySlots.push(sl);
-            else playerSlots.push(sl);
+            // team=1 = white/player cards, team=0 = black/enemy cards
+            if (sl.ca.team === 1) playerSlots.push(sl);
+            else enemySlots.push(sl);
         }
     }
 
@@ -2237,17 +2242,17 @@ function drawLevelUpUI() {
     // Set spritesheet for card images
     spritesheet('cards');
 
-    // Draw each panel with label
+    // Draw each choice group
     for (let pi = 0; pi < panels.length; pi++) {
         const pan = panels[pi];
         drawCardPanel(pan, pw, ph, pi);
-        // Label above panel
-        const label = pan.team === 0 ? (lang.your_cards || 'YOUR CARDS') : (lang.enemy_cards || 'ENEMY CARDS');
-        smallPrint(label, pan.x + pan.w / 2, pan.y - 8, pan.team === 0 ? 12 : 1, 1);
+        // Label above each group
+        const label = (lang && lang.group) || 'Group';
+        smallPrint(label + ' ' + (pi + 1), pan.x + pan.w / 2, pan.y - 8, 7, 1);
     }
 
-    // Instructions at very bottom (use lang translation)
-    lprint((lang && lang.choose_set) || 'Click a panel to choose', MCW / 2, MCH - 4, 6, 1);
+    // Instructions at very bottom
+    lprint((lang && lang.choose_set) || 'Click a group to choose', MCW / 2, MCH - 4, 6, 1);
 
     spritesheet('gfx');
 }
@@ -2275,8 +2280,9 @@ function drawCardPanel(pan, pw, ph, panelIdx) {
         const cx = x + ma + (ecc + cardW) * ci;
         const cy = y + 1 + (ph - cardH) / 2;
 
-        // Card background
-        rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, pan.team === 1 ? 12 : 1);
+        // Card background (team=1 white/player = light, team=0 black/enemy = dark)
+        const cardTeam = ca.team || 0;
+        rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, cardTeam === 1 ? 12 : 1);
         rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
 
         // Card image from spritesheet using gid (Lua: 24x32 sprites)
