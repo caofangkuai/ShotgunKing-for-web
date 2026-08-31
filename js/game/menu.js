@@ -356,9 +356,11 @@ function isLocked(id) {
 }
 
 // === MENU ACTION ===
+let menuClosing = false;
 function actMenu(id) {
+    if (menuClosing) return;
     sfx('menu_in');
-    
+
     switch (id) {
         case 'play':
             closeMenu();
@@ -389,10 +391,38 @@ function actMenu(id) {
             menuState = 'title';
             initMenu();
             break;
-        case 'reset_save':
-            Save.reset();
+        case 'save_back':
+            menuClosing = true;
+            sfx('menu_out');
+            Save.save();
             closeMenu();
-            initOptions();
+            menuState = 'title';
+            setTimeout(function() {
+                initMenu();
+                menuClosing = false;
+            }, 50);
+            break;
+        case 'reset_save':
+            // Two-click confirm: first click turns red, second confirms
+            var btn = null;
+            for (var j = 0; j < menuList.length; j++) {
+                if (menuList[j].id === 'reset_save') {
+                    btn = menuList[j];
+                    break;
+                }
+            }
+            if (btn) {
+                if (btn.red) {
+                    Save.reset();
+                    closeMenu();
+                    menuState = 'title';
+                    initMenu();
+                } else {
+                    btn.red = true;
+                    if (btn.upn) btn.upn();
+                    sfx('menu_in', 0.7);
+                }
+            }
             break;
         case 'export_save':
             exportSaveData();
@@ -632,7 +662,7 @@ function initWeaponSelect() {
     };
     elements.push(wepPan);
     menuList.push(wepPan);
-    
+
     // Weapon arrows
     for (var wi = 0; wi < 2; wi++) {
         (function(wi) {
@@ -869,31 +899,59 @@ function initOptions() {
     reset();
     menuList = [];
     fadeTo(0, 20);
-    
-    var opts = ['music', 'sfx', 'shields', 'show_danger', 'scrshake', 'scrflash', 'lang', 'back'];
+
+    // Build options list from OPTIONS table (matches Lua)
+    var opts = [];
+    for (var key in OPTIONS) {
+        if (OPTIONS.hasOwnProperty(key)) {
+            var o = OPTIONS[key];
+            // Skip fullscreen and hdtext on mobile (matches Lua)
+            if (o.nid === 'fullscreen') continue;
+            opts.push(key);
+        }
+    }
+    opts.push('reset_save');
+    opts.push('save_back');
+
     var selIndex = 0;
-    
+
     var ma = 8;
     var ecy = BUTTON_HEIGHT;
     var pw = 64;
     var ph = 2 * ma + opts.length * ecy - 2;
     var px = 212;
     var py = MCH / 2 - ph / 2;
-    
+
     var dk = py + ph - (MCH - 4);
     if (dk > 0) py = py - dk / 2;
-    
-    // Eraser
-    var eraser = mke();
-    eraser.dp = DP_TOP;
-    menuList.push(eraser);
-    
+
+    // Background - black king and trees (matches title screen style)
+    var bg = mke(0, 0, 0);
+    bg.dp = DP_BG;
+    bg.dr = function() {
+        rectfill(0, 0, MCW, MCH, 0); // pure black background
+        spritesheet('title');
+        // Castle silhouette on left
+        sspr(0, 189, 307, 163, -30, 17);
+        // Trees
+        sspr(463, 216, 49, 29, 0, 156);
+        sspr(307, 245, 205, 107, 115, 73);
+        // Chess pieces (includes black king)
+        sspr(320, 114, 192, 66, 0, 114);
+        spritesheet('gfx');
+        // Decorative border
+        rect(1, 1, MCW - 2, MCH - 2, 5);
+        rect(3, 3, MCW - 4, MCH - 4, 5);
+    };
+    menuList.push(bg);
+
     for (var i = 0; i < opts.length; i++) {
         var id = opts[i];
         var by = py + ma + i * ecy - 2;
         var m = mkMenuBut(id, px, by, pw, ecy - 2);
         m.align_left = true;
-        
+        m.menuIndex = i;
+
         // Set up option value display
         var o = OPTIONS[id];
         if (o) {
@@ -917,31 +975,42 @@ function initOptions() {
             }
             m.upn();
         }
-        
+
+        // Reset save button special handling
+        if (id === 'reset_save') {
+            m.red = false;
+            m.upn = function() {
+                m.name = m.red ? (lang.reset_save_confirm || 'Reset Save?') : (lang.reset_save || 'Reset Save');
+            };
+            m.upn();
+        }
+
         menuList.push(m);
-        
+
         // Slide in animation
         var s = (i % 2) * 2 - 1;
         m.x = m.x + s * 16;
         mv(m, -s * 16, 0, 16);
         m.twcv = ease_out;
     }
-    
+
     // Input handler for options
     var input = mke(0, 0, 0);
     input.dp = DP_TOP;
     input.upd = function() {
         if (btnp('down')) {
             selIndex = (selIndex + 1) % opts.length;
+            menuSelIndex = selIndex;
             sfx('sel_opt', 0.4);
         }
         if (btnp('up')) {
             selIndex = (selIndex - 1 + opts.length) % opts.length;
+            menuSelIndex = selIndex;
             sfx('sel_opt', 0.4);
         }
         if (btnp('left') || btnp('right')) {
             var id = opts[selIndex];
-            if (id === 'back') return;
+            if (id === 'save_back' || id === 'reset_save') return;
             var o = OPTIONS[id];
             if (o) {
                 var dir = btnp('right') ? 1 : -1;
@@ -958,20 +1027,80 @@ function initOptions() {
                 }
             }
         }
-        if (btnp('validate') || btnp('cancel')) {
+        if (btnp('validate')) {
             var id = opts[selIndex];
-            if (id === 'back' || btnp('cancel')) {
+            if (id === 'save_back') {
                 sfx('menu_out');
                 Save.save();
                 closeMenu();
                 menuState = 'title';
                 initMenu();
+            } else if (id === 'reset_save') {
+                // Two-click confirm (matches Lua)
+                var btn = null;
+                for (var j = 0; j < menuList.length; j++) {
+                    if (menuList[j].id === 'reset_save') {
+                        btn = menuList[j];
+                        break;
+                    }
+                }
+                if (btn) {
+                    if (btn.red) {
+                        Save.reset();
+                        btn.red = false;
+                        closeMenu();
+                        menuState = 'title';
+                        initMenu();
+                    } else {
+                        btn.red = true;
+                        btn.upn();
+                        sfx('menu_in', 0.7);
+                    }
+                }
             }
+        }
+        if (btnp('cancel')) {
+            sfx('menu_out');
+            Save.save();
+            closeMenu();
+            menuState = 'title';
+            initMenu();
         }
     };
     menuList.push(input);
-    
+
     mdr = drawMenu;
+}
+
+// === OPTION APPLICATION ===
+function applyOption(id) {
+    var o = OPTIONS[id];
+    if (!o) return;
+    var val = SET[o.nid];
+
+    switch (id) {
+        case 'music':
+            if (typeof Audio !== 'undefined') Audio.setMusicVolume(val / 10);
+            break;
+        case 'sfx':
+            if (typeof Audio !== 'undefined') Audio.setSfxVolume(val / 10);
+            break;
+        case 'shields':
+            // Shield count is read at start of each turn via SET.get('shields')
+            break;
+        case 'show_danger':
+            // This affects whether danger zones are displayed
+            break;
+        case 'scrshake':
+            // This affects screen shake intensity
+            break;
+        case 'scrflash':
+            // This affects screen flash effects
+            break;
+        case 'lang':
+            // Language change would require reload
+            break;
+    }
 }
 
 // === SAVE EXPORT/IMPORT ===
@@ -1026,9 +1155,9 @@ function initCodex() {
 
         // Stats
         var stats = [
-            (lang.games_played || 'Games:') + ' ' + (Save.data.stats.games || 0),
-            (lang.wins || 'Wins:') + ' ' + (Save.data.stats.wins || 0),
-            (lang.best_rank || 'Best Rank:') + ' ' + (Save.data.stats.bestRank || 1),
+            (lang.games_played || 'Games:') + ' ' + ((Save.data.prog && Save.data.prog.stats && Save.data.prog.stats.games) || 0),
+            (lang.wins || 'Wins:') + ' ' + ((Save.data.prog && Save.data.prog.stats && Save.data.prog.stats.wins) || 0),
+            (lang.best_rank || 'Best Rank:') + ' ' + ((Save.data.prog && Save.data.prog.stats && Save.data.prog.stats.bestRank) || 1),
         ];
         var cy = 30;
         for (var i = 0; i < stats.length; i++) {

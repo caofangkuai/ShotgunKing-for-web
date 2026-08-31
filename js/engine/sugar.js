@@ -67,7 +67,7 @@ const Sugar = {
     _resourceCache: {},
 
     // HD Text Overlay
-    overlayScale: 2,
+    overlayScale: 4,
     overlaySurface: null,
     overlayCtx: null,
     overlayEnabled: true,

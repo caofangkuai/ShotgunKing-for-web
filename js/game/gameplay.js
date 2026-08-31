@@ -146,21 +146,11 @@ function initGame() {
     }
     upgrades = tempUpgrades;
     
-    // Background - uses title screen graphics (castle, trees, forest)
+    // Background - pure black for game board
     bg = mke(0, 0, 0);
     bg.dp = DP_BG;
     bg.dr = function() {
-        rectfill(0, -32, MCW - 1, MCH + 64 - 1, 1);
-        // Draw title screen background elements
-        spritesheet('title');
-        // Castle at (0, 17)
-        sspr(0, 189, 307, 163, 0, 17);
-        // Trees
-        sspr(463, 216, 49, 29, 0, 156);
-        sspr(307, 245, 205, 107, 115, 73);
-        // Chess pieces at bottom
-        sspr(320, 114, 192, 66, 0, 114);
-        spritesheet('gfx');
+        rectfill(0, -32, MCW - 1, MCH + 64 - 1, 0); // pure black
     };
     
     // Board entity
@@ -469,7 +459,7 @@ function createPiece(type, isBad) {
     piece.big = pieceData.big || false;
     piece.seek = pieceData.seek || 'wdist';
     piece.hdy = pieceData.hdy || 0;
-    piece.cd = 0;
+    piece.cd = Math.floor(Math.random() * piece.tempo); // matches Lua: e.cd = irnd(get_piece_tempo(e))
     piece.ready = false;
     piece.dp = DP_PIECES;
     piece.z = 0;
@@ -578,9 +568,8 @@ function initNewTurn() {
 }
 
 function newTurn() {
-    shields = SET.get('shields');
-    if (mode.id === 'tutorial') shields = 2;
-    
+    // Shields are now restored in endPlayerTurn (after player moves)
+
     // Auto-reload chamber from ammo at start of turn
     if (stack.chamber_max && ammo > 0 && chamber < stack.chamber_max) {
         while (chamber < stack.chamber_max && ammo > 0) {
@@ -1082,6 +1071,8 @@ function oppTurn() {
 function oppMove() {
     // Find next ready piece
     const ready = bads.filter(b => !b.dead && b.ready && !b.stun);
+    if (ready.length > 0) {
+    }
 
     if (ready.length === 0) {
         // All pieces done, start new turn
@@ -1434,29 +1425,57 @@ function showWinScreen(nxt) {
 function levelUp(data, nxt) {
     leveling = true;
 
-    // Pick cards for selection: mix of player (team 1) and enemy (team 0) cards
-    const choices = [];
+    // Panel layout: 2 columns x 1 row (left = player, right = enemy)
+    const panXm = 2;
+    const panYm = 1;
+    const panWidth = 120;
+    const panHeight = 60;
+    const ec = 8; // gap between panels
 
-    // Pick 1-2 player cards
-    for (let i = 0; i < 2; i++) {
-        const card = pickCard(1);
-        if (card) choices.push(card);
-    }
+    const sx = boardX + (128 - panWidth) / 2;
+    const sy = boardY + (128 - panHeight) / 2;
+    const pw = (panWidth - (panXm - 1) * ec) / panXm;
+    const ph = (panHeight - (panYm - 1) * ec) / panYm;
 
-    // Pick 1-2 enemy cards
-    for (let i = 0; i < 2; i++) {
-        const card = pickCard(0);
-        if (card) choices.push(card);
-    }
-
-    // Show card selection UI
-    showCardSelection(choices, function(selectedCard) {
-        if (selectedCard) {
-            addCard(selectedCard);
+    // Build panel choices: each panel has card slots with team constraints
+    // Panel 0 (left): player cards (team 0), Panel 1 (right): enemy cards (team 1)
+    const panels = [];
+    for (let px = 0; px < panXm; px++) {
+        const panelCards = [];
+        const team = px === 0 ? 0 : 1; // Panel 0 = player (team 0), Panel 1 = enemy (team 1)
+        const numCards = 2; // Each panel shows 2 cards side by side
+        for (let i = 0; i < numCards; i++) {
+            const card = pickCard(team);
+            if (card) panelCards.push(card);
         }
-        leveling = false;
-        if (nxt) nxt();
-    });
+        panels.push({
+            cards: panelCards,
+            team: team,
+            x: sx + px * (pw + ec),
+            y: sy,
+            w: pw,
+            h: ph,
+            hovered: false,
+            selected: false
+        });
+    }
+
+    // Store leveling state with panel data
+    leveling = {
+        panels: panels,
+        panWidth: pw,
+        panHeight: ph,
+        callback: function(selectedPanel) {
+            // Add all cards from selected panel
+            if (selectedPanel) {
+                for (const card of selectedPanel.cards) {
+                    addCard(card);
+                }
+            }
+            leveling = false;
+            if (nxt) nxt();
+        }
+    };
 }
 
 function pickCard(team) {
@@ -1504,8 +1523,11 @@ function addCard(ca, nxt) {
 }
 
 function getFreeCardSlot(ca) {
-    const maxSlots = 10;
-    for (let i = 0; i < maxSlots; i++) {
+    const perSide = 10; // 5 columns x 2 rows per side
+    const team = ca.team || 0;
+    // Player cards (team 0) use slots 0-9, enemy cards (team 1) use slots 10-19
+    const start = team === 0 ? 0 : perSide;
+    for (let i = start; i < start + perSide; i++) {
         if (!cardSlots[i] || !cardSlots[i].ca) {
             return i;
         }
@@ -1789,7 +1811,7 @@ function drawUI() {
         sspr(i < chamber ? 4 : 0, 56, 3, 7, boardX + i * 4, y);
     }
 
-    // Shotgun sprite (right of chamber) - clickable for manual reload
+    // Shotgun sprite (click to reload)
     spritesheet('weapons');
     let wfr = 96;
     let wfy = 0;
@@ -1801,19 +1823,9 @@ function drawUI() {
     const gunY = boardY - 18;
     sspr(wfr, wfy, 24, 16, gunX, gunY);
 
-    // Manual reload button (matches Lua reload_shotgun)
-    // Show "RELOAD" button when chamber not full and ammo available
+    // Shotgun click area for manual reload
     if (chamber < stack.chamber_max && ammo > 0 && !reloading) {
-        const btnX = gunX + 26;
-        const btnY = gunY;
-        const btnW = 28;
-        const btnH = 16;
-        // Draw button background
-        rectfill(btnX, btnY, btnX + btnW, btnY + btnH, 8);
-        rect(btnX, btnY, btnX + btnW, btnY + btnH, 7);
-        lprint('LOAD', btnX + 4, btnY + 5, 0, 0);
-        // Store button bounds for click detection
-        reloadBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+        reloadBtnRect = { x: gunX, y: gunY, w: 24, h: 16 };
     } else {
         reloadBtnRect = null;
     }
@@ -2119,229 +2131,259 @@ function getDispStats() {
 }
 
 function drawCardsPanel() {
-    const maxSlots = 8;
-    const cardW = 28;
+    // Vertical layout: 2 columns x 5 rows per side = 10 slots per side
+    const rows = 5;
+    const cols = 2;
+    const perSide = rows * cols;
+    const cardW = 20;
+    const cardH = 18;
     const startY = boardY;
-    const availH = ymax * SQ;
-    const slotH = Math.floor(availH / maxSlots);
-    
+
     if (!cardSlots) return;
-    
+
     spritesheet('cards');
-    
+
     // Split card slots by team
-    var whiteSlots = [];
-    var blackSlots = [];
+    const playerSlots = [];
+    const enemySlots = [];
     for (let i = 0; i < cardSlots.length; i++) {
         const sl = cardSlots[i];
         if (sl && sl.ca) {
-            if (sl.ca.team === 1) whiteSlots.push(sl);
-            else blackSlots.push(sl);
+            if (sl.ca.team === 1) enemySlots.push(sl);
+            else playerSlots.push(sl);
         }
     }
-    
-    // Left side: player/black card slots (team 0) - at x=0
-    var lx = 0;
-    for (let i = 0; i < maxSlots; i++) {
-        const sl = blackSlots[i];
-        const cx = lx;
-        const cy = startY + i * slotH;
-        
+
+    // Left side: player card slots (team 0) - 2 columns x 5 rows (vertical)
+    for (let i = 0; i < perSide; i++) {
+        const sl = playerSlots[i];
+        const col = Math.floor(i / rows);
+        const row = i % rows;
+        const cx = col * cardW;
+        const cy = startY + row * cardH;
+
         if (!sl) {
-            // Empty slot - dark with border
-            rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 1);
-            rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+            rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, 1);
+            rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 5);
         } else {
             const ca = sl.ca;
             if (ca.flipped) {
-                // Flipped card - dark with X mark
-                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
-                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
-                lprint('X', cx + cardW / 2, cy + 2, 2, 1);
+                rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, 5);
+                rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
+                lprint('X', cx + cardW / 2, cy + 5, 2, 1);
             } else {
-                // Active card - draw from spritesheet
                 if (ca.gid !== undefined) {
-                    const sx = (ca.gid % 16) * 16;
-                    const sy = Math.floor(ca.gid / 16) * 16;
-                    sspr(sx, sy, 16, 16, cx + 2, cy + 2, cardW - 4, slotH - 8);
+                    // Lua: (ca.gid%10)*24, flr(ca.gid/10)*32, 24, 32
+                    const sx = (ca.gid % 10) * 24;
+                    const sy = Math.floor(ca.gid / 10) * 32;
+                    // Draw card image at 24x32 size (scaled to fit slot)
+                    sspr(sx, sy, 24, 32, cx + 2, cy + 1, cardW - 4, cardH - 2);
                 } else {
-                    rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 4);
+                    rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, 4);
                 }
-                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
+                rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
             }
         }
     }
-    
-    // Right side: enemy/white card slots (team 1) - at x=MCW-cardW
-    var rx = MCW - cardW;
-    for (let i = 0; i < maxSlots; i++) {
-        const sl = whiteSlots[i];
-        const cx = rx;
-        const cy = startY + i * slotH;
-        
+
+    // Right side: enemy card slots (team 1) - 2 columns x 5 rows (vertical)
+    for (let i = 0; i < perSide; i++) {
+        const sl = enemySlots[i];
+        const col = Math.floor(i / rows);
+        const row = i % rows;
+        const cx = MCW - (cols - col) * cardW;
+        const cy = startY + row * cardH;
+
         if (!sl) {
-            // Empty slot
-            rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 1);
-            rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+            rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, 1);
+            rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 5);
         } else {
             const ca = sl.ca;
             if (ca.flipped) {
-                // Flipped card
-                rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
-                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
-                lprint('X', cx + cardW / 2, cy + 2, 2, 1);
+                rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, 5);
+                rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
+                lprint('X', cx + cardW / 2, cy + 5, 2, 1);
             } else {
-                // Active card - draw from spritesheet
                 if (ca.gid !== undefined) {
-                    const sx = (ca.gid % 16) * 16;
-                    const sy = Math.floor(ca.gid / 16) * 16;
-                    sspr(sx, sy, 16, 16, cx + 2, cy + 2, cardW - 4, slotH - 8);
+                    // Lua: (ca.gid%10)*24, flr(ca.gid/10)*32, 24, 32
+                    const sx = (ca.gid % 10) * 24;
+                    const sy = Math.floor(ca.gid / 10) * 32;
+                    // Draw card image at 24x32 size (scaled to fit slot)
+                    sspr(sx, sy, 24, 32, cx + 2, cy + 1, cardW - 4, cardH - 2);
                 } else {
-                    rectfill(cx, cy, cx + cardW - 1, cy + slotH - 1, 5);
+                    rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, 5);
                 }
-                rect(cx, cy, cx + cardW - 1, cy + slotH - 1, 0);
+                rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
             }
         }
     }
-    
+
     spritesheet('gfx');
 }
 
 function drawLevelUpUI() {
-    if (!leveling || !leveling.choices) return;
+    if (!leveling || !leveling.panels) return;
+
+    const panels = leveling.panels;
+    const pw = leveling.panWidth;
+    const ph = leveling.panHeight;
 
     // Darken background
     rectfill(0, 0, MCW, MCH, 0);
 
-    // Title
-    lprint(lang.level_up || 'LEVEL UP!', MCW / 2, 6, 5, 1);
-
-    // Split choices by team
-    const playerCards = [];
-    const enemyCards = [];
-    const choices = leveling.choices;
-    for (let i = 0; i < choices.length; i++) {
-        const ca = choices[i];
-        if (ca.team === 1) {
-            playerCards.push({ card: ca, idx: i });
-        } else {
-            enemyCards.push({ card: ca, idx: i });
-        }
-    }
-
-    const cardW = 56;
-    const cardH = 64;
-    const gap = 8;
-    const startY = 20;
-
-    // Column headers
-    lprint(lang.player_cards || 'YOUR CARDS', 64, startY + 2, 7, 1);
-    lprint(lang.enemy_cards || 'ENEMY CARDS', MCW - 64, startY + 2, 7, 1);
+    // Title (use lang translation, matches Lua: msg(lang.choose_set,-1))
+    lprint((lang && lang.choose_set) || 'Choose a set of cards', MCW / 2, 6, 5, 1);
 
     // Set spritesheet for card images
     spritesheet('cards');
 
-    // Draw player cards (left column)
-    for (let i = 0; i < playerCards.length; i++) {
-        const { card: ca, idx } = playerCards[i];
-        const x = 36;
-        const y = startY + 10 + i * (cardH + gap);
-        drawCardSlot(ca, x, y, cardW, cardH, idx);
+    // Draw each panel with label
+    for (let pi = 0; pi < panels.length; pi++) {
+        const pan = panels[pi];
+        drawCardPanel(pan, pw, ph, pi);
+        // Label above panel
+        const label = pan.team === 0 ? (lang.your_cards || 'YOUR CARDS') : (lang.enemy_cards || 'ENEMY CARDS');
+        smallPrint(label, pan.x + pan.w / 2, pan.y - 8, pan.team === 0 ? 12 : 1, 1);
     }
 
-    // Draw enemy cards (right column)
-    for (let i = 0; i < enemyCards.length; i++) {
-        const { card: ca, idx } = enemyCards[i];
-        const x = MCW - 36 - cardW;
-        const y = startY + 10 + i * (cardH + gap);
-        drawCardSlot(ca, x, y, cardW, cardH, idx);
-    }
-
-    // Show description for hovered card (above instructions)
-    if (leveling.hoverIdx >= 0 && choices[leveling.hoverIdx]) {
-        const ca = choices[leveling.hoverIdx];
-        const desc = ca.desc || getCardEffectText(ca);
-        if (desc) {
-            const descY = MCH - 26;
-            rectfill(4, descY, MCW - 4, descY + 18, 1);
-            rect(4, descY, MCW - 4, descY + 18, 5);
-            pprint(desc, MCW / 2, descY + 4, MCW - 16, 7, 1);
-        }
-    }
-
-    // Instructions at very bottom
-    lprint('Click: View  |  Double-Click: Select', MCW / 2, MCH - 4, 6, 1);
+    // Instructions at very bottom (use lang translation)
+    lprint((lang && lang.choose_set) || 'Click a panel to choose', MCW / 2, MCH - 4, 6, 1);
 
     spritesheet('gfx');
 }
 
-function drawCardSlot(ca, x, y, cardW, cardH, idx) {
-    const team = ca.team || 0;
+function drawCardPanel(pan, pw, ph, panelIdx) {
+    const x = pan.x;
+    const y = pan.y;
 
-    // Card background
-    rectfill(x, y, x + cardW, y + cardH, team === 1 ? 12 : 1);
-    rect(x, y, x + cardW, y + cardH, 0);
+    // Panel background (matches Lua: rectfill(0,0,pw-1,ph-1,2))
+    rectfill(x, y, x + pw - 1, y + ph - 1, 2);
 
-    // Draw card image from cards spritesheet using gid
-    if (ca.gid !== undefined) {
-        const sx = (ca.gid % 16) * 16;
-        const sy = Math.floor(ca.gid / 16) * 16;
-        // Draw card image centered and larger
-        sspr(sx, sy, 16, 16, x + (cardW - 32) / 2, y + 2, 32, 32);
+    // Panel border (color changes on hover, matches Lua: c=3 normal, c=5 hover)
+    const borderColor = pan.hovered ? 5 : 3;
+    rect(x, y, x + pw - 1, y + ph - 1, borderColor);
+
+    // Draw cards side by side (matches Lua: 24x32 cards with 4px gap)
+    const cardW = 32;
+    const cardH = 40;
+    const ecc = 4;
+    const numCards = pan.cards.length;
+    const ma = (pw - numCards * cardW - (numCards - 1) * ecc) / 2;
+
+    for (let ci = 0; ci < numCards; ci++) {
+        const ca = pan.cards[ci];
+        const cx = x + ma + (ecc + cardW) * ci;
+        const cy = y + 1 + (ph - cardH) / 2;
+
+        // Card background
+        rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, pan.team === 1 ? 12 : 1);
+        rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
+
+        // Card image from spritesheet using gid (Lua: 24x32 sprites)
+        if (ca.gid !== undefined) {
+            const sx = (ca.gid % 10) * 24;
+            const sy = Math.floor(ca.gid / 10) * 32;
+            // Center the 24x32 image in the card area
+            const imgX = cx + Math.floor((cardW - 24) / 2);
+            const imgY = cy + 2;
+            sspr(sx, sy, 24, 32, imgX, imgY, 24, 32);
+        }
+
+        // Card name (use lang translation, small font below image)
+        const name = (lang && lang[ca.id]) || ca.id || '';
+        smallPrint(name, cx + cardW / 2, cy + 22, 7, 1);
+    }
+}
+
+function drawPanelTooltip(pan, pw, ph, panelIdx) {
+    // Build description text for all cards in panel (matches Lua mk_hint)
+    const descs = [];
+    for (const ca of pan.cards) {
+        const name = (lang && lang[ca.id]) || ca.id || '';
+        const desc = ca.desc || getCardEffectText(ca) || '';
+        descs.push(name + '\n' + desc);
     }
 
-    // Card name
-    const name = ca.id || ca.name || '';
-    smallPrint(name, x + cardW / 2, y + 36, 7, 1);
+    const margin = 4;
+    const tooltipW = 108;
 
-    // Show card effect summary (truncated to fit)
-    const effect = getCardEffectText(ca);
-    if (effect) {
-        // Truncate if too long
-        const maxLen = 12;
-        const trunc = effect.length > maxLen ? effect.substring(0, maxLen) + '...' : effect;
-        smallPrint(trunc, x + cardW / 2, y + 46, 6, 1);
+    // Calculate tooltip height based on number of cards and lines
+    let totalH = 0;
+    for (const desc of descs) {
+        const lines = desc.split('\n').length;
+        totalH += margin * 2 + lines * 8;
     }
 
-    // Hover/select highlight
-    if (leveling.hoverIdx === idx) {
-        rect(x - 2, y - 2, x + cardW + 2, y + cardH + 2, 8);
-        rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 11);
-    } else if (Input.mouseInRect(x, y, cardW, cardH)) {
-        rect(x - 1, y - 1, x + cardW + 1, y + cardH + 1, 8);
+    // Position tooltip (matches Lua: left panel goes left, right panel goes right)
+    let tx, ty;
+    if (panelIdx === 0) {
+        // Player panel (top) - tooltip below
+        tx = Math.max(2, pan.x);
+        ty = pan.y + ph + 4;
+    } else {
+        // Enemy panel (bottom) - tooltip above
+        tx = Math.max(2, pan.x);
+        ty = pan.y - totalH - 4;
+    }
+
+    // Clamp to screen bounds
+    if (tx + tooltipW > MCW - 2) tx = MCW - 2 - tooltipW;
+    if (ty < 2) ty = 2;
+
+    // Draw tooltip background
+    rectfill(tx, ty, tx + tooltipW - 1, ty + totalH - 1, 2);
+    rect(tx, ty, tx + tooltipW - 1, ty + totalH - 1, 3);
+
+    // Draw text
+    let cy = ty + margin;
+    for (const desc of descs) {
+        const lines = desc.split('\n');
+        for (let li = 0; li < lines.length; li++) {
+            const color = li === 0 ? 4 : 3; // First line (name) is highlight color
+            smallPrint(lines[li], tx + margin, cy, color, 0);
+            cy += 8;
+        }
+        cy += margin;
     }
 }
 
 function getCardEffectText(ca) {
     if (ca.desc) return ca.desc;
 
+    const L = lang || {};
     const parts = [];
-    if (ca.firepower) parts.push('Power ' + (ca.firepower > 0 ? '+' : '') + ca.firepower);
-    if (ca.firerange) parts.push('Range ' + (ca.firerange > 0 ? '+' : '') + ca.firerange);
-    if (ca.spread) parts.push('Spread ' + (ca.spread > 0 ? '+' : '') + ca.spread);
-    if (ca.ammo_max) parts.push('Ammo ' + (ca.ammo_max > 0 ? '+' : '') + ca.ammo_max);
-    if (ca.chamber_max) parts.push('Chamber +' + ca.chamber_max);
-    if (ca.blade) parts.push('Blade +' + ca.blade);
-    if (ca.knockback) parts.push('Knockback');
-    if (ca.pierce) parts.push('Pierce +' + ca.pierce);
+    if (ca.firepower) parts.push((L.effect_firepower || 'Power') + ' ' + (ca.firepower > 0 ? '+' : '') + ca.firepower);
+    if (ca.firerange) parts.push((L.effect_firerange || 'Range') + ' ' + (ca.firerange > 0 ? '+' : '') + ca.firerange);
+    if (ca.spread) parts.push((L.effect_spread || 'Spread') + ' ' + (ca.spread > 0 ? '+' : '') + ca.spread);
+    if (ca.ammo_max) parts.push((L.effect_ammo_max || 'Ammo max') + ' ' + (ca.ammo_max > 0 ? '+' : '') + ca.ammo_max);
+    if (ca.chamber_max) parts.push((L.effect_chamber_max || 'Chamber') + ' +' + ca.chamber_max);
+    if (ca.blade) parts.push((L.effect_blade || 'Blade') + ' +' + ca.blade);
+    if (ca.knockback) parts.push(L.effect_knockback || 'Knockback');
+    if (ca.pierce) parts.push((L.effect_pierce || 'Pierce') + ' +' + ca.pierce);
     if (ca.gain) {
         if (Array.isArray(ca.gain)) {
-            const pieceNames = ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King'];
+            const pieceNames = [
+                L.piece_0 || 'Pawn', L.piece_1 || 'Knight', L.piece_2 || 'Bishop',
+                L.piece_3 || 'Rook', L.piece_4 || 'Queen', L.piece_5 || 'King'
+            ];
             for (let i = 0; i < ca.gain.length; i++) {
                 if (ca.gain[i] > 0) parts.push('+' + ca.gain[i] + ' ' + (pieceNames[i] || 'Piece'));
             }
         } else {
-            parts.push('+' + ca.gain + ' Piece');
+            parts.push('+' + ca.gain + ' ' + (L.piece || 'Piece'));
         }
     }
     if (ca.sac) {
         if (Array.isArray(ca.sac)) {
-            const pieceNames = ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King'];
+            const pieceNames = [
+                L.piece_0 || 'Pawn', L.piece_1 || 'Knight', L.piece_2 || 'Bishop',
+                L.piece_3 || 'Rook', L.piece_4 || 'Queen', L.piece_5 || 'King'
+            ];
             for (let i = 0; i < ca.sac.length; i++) {
                 if (ca.sac[i] > 0) parts.push('-' + ca.sac[i] + ' ' + (pieceNames[i] || 'Piece'));
             }
         } else {
-            parts.push('Sacrifice ' + ca.sac);
+            parts.push((L.sacrifice || 'Sacrifice') + ' ' + ca.sac);
         }
     }
     if (ca.leader_hp) parts.push('King HP ' + (ca.leader_hp > 0 ? '+' : '') + ca.leader_hp);

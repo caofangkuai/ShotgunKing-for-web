@@ -57,7 +57,9 @@ const Entity = {
         e.dead = true;
         if (e.onKill) e.onKill(e);
         // Remove children
-        for (const c of e.children) this.kl(c);
+        if (e.children) {
+            for (const c of e.children) this.kl(c);
+        }
     },
     
     // Remove dead entities
@@ -95,8 +97,10 @@ const Entity = {
         }
         
         // Draw children recursively, marking them as child draws
-        for (const c of e.children) {
-            this.dre(c, x, y, true);
+        if (e.children) {
+            for (const c of e.children) {
+                this.dre(c, x, y, true);
+            }
         }
     },
     

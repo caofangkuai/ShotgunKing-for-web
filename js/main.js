@@ -20,7 +20,6 @@ let gameState = {
 
 // === MAIN INITIALIZATION ===
 async function main() {
-    console.log('Shotgun King: The Final Checkmate - Web Edition');
     
     // Initialize Sugar engine
     Sugar.init();
@@ -87,7 +86,6 @@ async function main() {
             Sugar.fontDy = Lang.fontDy;
         }
     }
-    console.log('Font set to:', fontName, 'size:', Sugar.fontSize, 'lineHeight:', Sugar.fontLineHeight, 'dy:', Sugar.fontDy);
     
     // Load spritesheets (needed for rendering)
     loadingPhase = 'sprites';
@@ -109,7 +107,6 @@ async function main() {
     // Load audio files in BACKGROUND (parallel, non-blocking)
     loadAllAudio().then(() => {
         loadingPhase = 'done';
-        console.log('All audio assets loaded.');
     });
 }
 
@@ -284,7 +281,7 @@ function _update() {
         }
 
         // Handle level up card selection input (always check when active)
-        if (leveling && leveling.choices) {
+        if (leveling && leveling.panels) {
             handleLevelUpInput();
         }
 
@@ -438,7 +435,7 @@ function handleGameInput() {
     }
 
     // Level up selection
-    if (leveling && leveling.choices) {
+    if (leveling && leveling.panels) {
         handleLevelUpInput();
         return;
     }
@@ -483,7 +480,7 @@ function handleMoveInput() {
 
     // Single-click on highlighted empty square to move (ends turn)
     if (Input.mouse.pressed) {
-        // Manual reload button click (matches Lua reload_shotgun)
+        // Click shotgun sprite to reload (matches Lua reload_shotgun)
         if (reloadBtnRect && Input.mouseInRect(reloadBtnRect.x, reloadBtnRect.y, reloadBtnRect.w, reloadBtnRect.h)) {
             if (chamber < stack.chamber_max && ammo > 0 && !reloading) {
                 reload();
@@ -632,89 +629,60 @@ function handleAimInput() {
 }
 
 function handleLevelUpInput() {
-    if (!leveling || !leveling.choices) return;
+    if (!leveling || !leveling.panels) return;
 
-    const choices = leveling.choices;
-    const cardW = 56;
-    const cardH = 64;
-    const gap = 8;
-    const startY = 20;
+    const panels = leveling.panels;
 
-    // Build layout info for hover detection
-    const playerCards = [];
-    const enemyCards = [];
-    for (let i = 0; i < choices.length; i++) {
-        if (choices[i].team === 1) playerCards.push(i);
-        else enemyCards.push(i);
+    // Reset hover state
+    for (const pan of panels) {
+        pan.hovered = false;
     }
 
-    // Track hover index for description display
-    leveling.hoverIdx = -1;
-
-    // Check player cards (left column)
-    for (let i = 0; i < playerCards.length; i++) {
-        const idx = playerCards[i];
-        const x = 36;
-        const y = startY + 10 + i * (cardH + gap);
-        if (Input.mouseInRect(x, y, cardW, cardH)) {
-            leveling.hoverIdx = idx;
+    // Check mouse hover over panels (matches Lua: mk_but(ch.x, ch.y, pw, ph, chf))
+    let hoveredPanel = null;
+    for (let pi = 0; pi < panels.length; pi++) {
+        const pan = panels[pi];
+        if (Input.mouseInRect(pan.x, pan.y, pan.w, pan.h)) {
+            pan.hovered = true;
+            hoveredPanel = pi;
             break;
         }
     }
 
-    // Check enemy cards (right column)
-    if (leveling.hoverIdx < 0) {
-        for (let i = 0; i < enemyCards.length; i++) {
-            const idx = enemyCards[i];
-            const x = MCW - 36 - cardW;
-            const y = startY + 10 + i * (cardH + gap);
-            if (Input.mouseInRect(x, y, cardW, cardH)) {
-                leveling.hoverIdx = idx;
-                break;
-            }
-        }
-    }
-
-    // Single click to select card
-    if (Input.mouse.pressed && leveling.hoverIdx >= 0) {
-        selectLevelUpCard(leveling.hoverIdx);
+    // Click to select panel (matches Lua: button click selects panel)
+    if (Input.mouse.pressed && hoveredPanel !== null) {
+        selectLevelUpPanel(hoveredPanel);
         return;
     }
 
-    // Double-click to select
-    if (Input.mouse.dclick && leveling.hoverIdx >= 0) {
-        selectLevelUpCard(leveling.hoverIdx);
-        return;
-    }
-
-    // Keyboard selection (number keys 1-9)
-    for (let k = 1; k <= 9 && k <= choices.length; k++) {
+    // Keyboard selection (number keys 1-2)
+    for (let k = 1; k <= panels.length; k++) {
         if (Input.keysPressed[String(k)]) {
-            selectLevelUpCard(k - 1);
+            selectLevelUpPanel(k - 1);
             return;
         }
     }
 
-    // Enter/Space to select hovered card
-    if (btnp('validate') && leveling.hoverIdx >= 0) {
-        selectLevelUpCard(leveling.hoverIdx);
+    // Enter/Space to select first hovered panel
+    if (btnp('validate') && hoveredPanel !== null) {
+        selectLevelUpPanel(hoveredPanel);
     }
 }
 
-function selectLevelUpCard(index) {
-    if (!leveling || !leveling.choices) return;
-    const card = leveling.choices[index];
+function selectLevelUpPanel(panelIndex) {
+    if (!leveling || !leveling.panels) return;
+    const panel = leveling.panels[panelIndex];
     const cb = leveling.callback;
-    
+
     // Clear leveling state before callback to prevent UI lingering
     leveling = null;
-    
+
     // Play sound
     if (typeof sfx === 'function') sfx('card_land');
-    
-    // Execute callback
+
+    // Execute callback with selected panel
     if (cb) {
-        cb(card);
+        cb(panel);
     }
 }
 
@@ -733,16 +701,22 @@ function handleGameOverInput() {
 function endPlayerTurn() {
     // Clear highlights
     for (const sq of squares) sq.highlight = false;
-    
+
     playing = false;
     timerun = false;
     ctrlMode = 'move';
-    
+
     // Reload ammo
     if (ammo < stack.ammo_max) {
         ammo = Math.min(stack.ammo_max, ammo + (stack.ammo_regen || 1));
     }
-    
+
+    // Restore shields after player moves (matches Lua: shields recover after action)
+    if (typeof shields !== 'undefined' && typeof SET !== 'undefined') {
+        shields = SET.get('shields');
+        if (mode && mode.id === 'tutorial') shields = 2;
+    }
+
     // Start opponent turn
     wait(10, oppTurn);
 }
