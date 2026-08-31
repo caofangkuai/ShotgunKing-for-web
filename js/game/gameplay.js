@@ -1387,7 +1387,7 @@ function drawLightningBolt(e) {
 }
 
 function showWinScreen(nxt) {
-    // Show win screen
+    // Show win screen briefly, then auto-advance (no button)
     const winBg = mke(0, 0, 0);
     winBg.dp = DP_TOP;
     winBg.dr = function() {
@@ -1397,28 +1397,16 @@ function showWinScreen(nxt) {
         smallPrint('Floor: ' + (mode.lvl || 1), MCW / 2, MCH / 2 + 10, 6, 1);
     };
 
-    // Continue button
-    const continueBtn = mkSquareBut('CONTINUE', function() {
-        kl(winBg);
-        fadeTo(-4, 30, function() {
-            if (nxt) nxt();
-        });
-    }, 48);
-    continueBtn.x = MCW / 2 - continueBtn.pw / 2;
-    continueBtn.y = MCH / 2 + 30;
-
     mdr = function() {
         for (const e of Entity.entities) dre(e);
     };
 
-    // Auto-advance after delay if no input
-    wait(120, function() {
-        if (!continueBtn.dead) {
-            kl(winBg);
-            fadeTo(-4, 30, function() {
-                if (nxt) nxt();
-            });
-        }
+    // Auto-advance after short delay (no button needed)
+    wait(60, function() {
+        kl(winBg);
+        fadeTo(-4, 30, function() {
+            if (nxt) nxt();
+        });
     });
 }
 
