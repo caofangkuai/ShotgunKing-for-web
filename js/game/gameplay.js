@@ -1474,10 +1474,8 @@ function levelUp(data, nxt) {
             if (inside && !panelEnt.ovl) {
                 panelEnt.ovl = true;
                 sfx('tic', 0.5);
-                console.log('[PANEL HOVER] panelIdx=' + py + ' cards=' + JSON.stringify(panelCards.map(c => c.id)));
                 if (!Input.touchActive) {
                     showPanelHints(panelEnt);
-                    console.log('[PANEL HINTS] hintEntities=' + panelEnt.hintEntities.length + ' descText=' + (panelEnt.hintEntities[0] && panelEnt.hintEntities[0].descText));
                 }
             } else if (!inside && panelEnt.ovl) {
                 panelEnt.ovl = false;
@@ -1655,12 +1653,17 @@ function drawPanelHints(panelEnt) {
         rectfill(x, y, x + hint.tooltipW - 1, y + hint.tooltipH - 1, 2);
         rect(x, y, x + hint.tooltipW - 1, y + hint.tooltipH - 1, 3);
 
-        // Draw text directly on main canvas using bitmap font
+        // Draw text directly on main canvas using Canvas API
+        const ctx = Sugar.ctx;
         const lines = hint.descText.split('\n');
         let cy = y + margin;
         for (let li = 0; li < lines.length; li++) {
             const color = li === 0 ? 4 : 3;
-            Sugar.drawBitmapText(lines[li], x + margin, cy, color);
+            ctx.fillStyle = Sugar.colors[color];
+            ctx.font = '8px monospace';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            ctx.fillText(lines[li], x + margin, cy);
             cy += 8;
         }
     }
@@ -2496,10 +2499,11 @@ function drawCardSlotTooltip() {
             const ca = slot.ca;
             if (!ca || ca.flipped) continue;
 
+            console.log('[CARD SLOT] ca=' + JSON.stringify(ca));
             const name = (lang && lang[ca.id]) || ca.id || '';
             const desc = ca.desc || getCardEffectText(ca) || '';
+            console.log('[CARD SLOT] name=' + name + ' desc=' + desc);
             const descText = name + '\n' + desc;
-            console.log('[CARD SLOT TOOLTIP] name=' + name + ' desc=' + desc + ' descText=' + descText);
 
             const margin = 4;
             const tooltipW = 100;
@@ -2525,11 +2529,16 @@ function drawCardSlotTooltip() {
             rectfill(tx, ty, tx + tooltipW - 1, ty + tooltipH - 1, 2);
             rect(tx, ty, tx + tooltipW - 1, ty + tooltipH - 1, 3);
 
-            // Draw text directly on main canvas using bitmap font
+            // Draw text directly on main canvas using Canvas API
+            const ctx = Sugar.ctx;
             let cy = ty + margin;
             for (let li = 0; li < lines.length; li++) {
                 const color = li === 0 ? 4 : 3;
-                Sugar.drawBitmapText(lines[li], tx + margin, cy, color);
+                ctx.fillStyle = Sugar.colors[color];
+                ctx.font = '8px monospace';
+                ctx.textBaseline = 'top';
+                ctx.textAlign = 'left';
+                ctx.fillText(lines[li], tx + margin, cy);
                 cy += 8;
             }
 
@@ -2540,8 +2549,6 @@ function drawCardSlotTooltip() {
 
 function drawLevelUpUI() {
     if (!leveling) return;
-
-    console.log('[DRAW LEVEL UP] panelEntities=' + (leveling.panelEntities ? leveling.panelEntities.length : 'null'));
 
     // Title
     lprint((lang && lang.choose_set) || 'Choose a set of cards', MCW / 2, 6, 5, 1);
