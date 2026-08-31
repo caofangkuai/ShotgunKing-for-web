@@ -18,6 +18,7 @@ let spawners = [];
 let stack = {};
 let upgrades = [];
 let cardSlots = [];
+let cardSlotPositions = [];
 let cards = { pool: [] };
 let whiteArmy = [];
 let perm = {};
@@ -1411,7 +1412,7 @@ function showWinScreen(nxt) {
 }
 
 function levelUp(data, nxt) {
-    leveling = true;
+    if (leveling) return;
 
     // Layout matches Lua: pan_xm=1, pan_ym=2 (1 column x 2 rows = two choice groups stacked)
     const panXm = 1;
@@ -1428,9 +1429,18 @@ function levelUp(data, nxt) {
     // Each choice group has {{team=0},{team=1}}: player card (left) + enemy card (right)
     const choiceDefs = data.choices || [[{team:0},{team:1}], [{team:0},{team:1}]];
 
-    const panels = [];
+    const panelEntities = [];
+    let selecting = false;
+
+    // Background entity (DP_BG so it draws BEHIND panels)
+    const bgEnt = mke(0, 0, 0);
+    bgEnt.dp = DP_BG;
+    bgEnt.dr = function() {
+        rectfill(0, 0, MCW, MCH, 0);
+    };
+
     for (let py = 0; py < panYm; py++) {
-        const px = py; // choice index
+        const px = py;
         const cardsSetup = choiceDefs[px] || [{team:0},{team:1}];
         const panelCards = [];
 
@@ -1440,33 +1450,265 @@ function levelUp(data, nxt) {
             if (card) panelCards.push(card);
         }
 
-        panels.push({
-            cards: panelCards,
-            x: sx,
-            y: sy + py * (ph + ec),
-            w: pw,
-            h: ph,
-            hovered: false,
-            selected: false
+        const panelEnt = mke(0, sx, MCH);
+        panelEnt.dp = DP_INTER;
+        panelEnt.pw = pw;
+        panelEnt.ph = ph;
+        panelEnt.panelIdx = py;
+        panelEnt.cards = panelCards;
+        panelEnt.ovl = false;
+        panelEnt.pretouched = false;
+        panelEnt.hintEntities = [];
+        panelEnt.targetY = sy + py * (ph + ec);
+
+        // Panel update: hover detection + touch/click handling
+        panelEnt.upd = function() {
+            if (selecting || !leveling) return;
+
+            const mx = Input.mouse.x;
+            const my = Input.mouse.y;
+            const inside = mx >= panelEnt.x && mx < panelEnt.x + pw &&
+                           my >= panelEnt.y && my < panelEnt.y + ph;
+
+            // Hover state change
+            if (inside && !panelEnt.ovl) {
+                panelEnt.ovl = true;
+                sfx('tic', 0.5);
+                console.log('[PANEL HOVER] panelIdx=' + py + ' cards=' + JSON.stringify(panelCards.map(c => c.id)));
+                if (!Input.touchActive) {
+                    showPanelHints(panelEnt);
+                    console.log('[PANEL HINTS] hintEntities=' + panelEnt.hintEntities.length + ' descText=' + (panelEnt.hintEntities[0] && panelEnt.hintEntities[0].descText));
+                }
+            } else if (!inside && panelEnt.ovl) {
+                panelEnt.ovl = false;
+                if (Input.touchActive) {
+                    panelEnt.pretouched = false;
+                }
+                hidePanelHints(panelEnt);
+            }
+
+            // Click / touch handling
+            if (inside && Input.mouse.pressed) {
+                if (Input.touchActive) {
+                    // Touch: first tap shows hint, second tap selects
+                    if (!panelEnt.pretouched) {
+                        panelEnt.pretouched = true;
+                        showPanelHints(panelEnt);
+                    } else {
+                        selectPanel(panelEnt);
+                    }
+                } else {
+                    // Mouse: click selects directly
+                    selectPanel(panelEnt);
+                }
+            }
+        };
+
+        // Panel draw
+        panelEnt.dr = function(e, px, py) {
+            drawPanelEntity(e, px, py);
+        };
+
+        // Slide in animation
+        wait(8 + py * 8, function() {
+            mvt(panelEnt, panelEnt.x, panelEnt.targetY, 16);
+            panelEnt.twcv = ease_out;
         });
+
+        panelEntities.push(panelEnt);
     }
 
     // Store leveling state
     leveling = {
-        panels: panels,
+        bgEnt: bgEnt,
+        panelEntities: panelEntities,
         panWidth: pw,
         panHeight: ph,
-        callback: function(selectedPanel) {
-            // Add ALL cards from selected group (both player and enemy cards)
-            if (selectedPanel) {
-                for (const card of selectedPanel.cards) {
-                    addCard(card);
+        selectCallback: function(selectedEnt) {
+            selecting = true;
+            sfx('level_up_sel');
+
+            // Hide all hints
+            for (const pe of panelEntities) {
+                hidePanelHints(pe);
+            }
+
+            // Fade out non-selected panels
+            for (const pe of panelEntities) {
+                if (pe !== selectedEnt) {
+                    pe.life = 32;
+                    pe.blink = 32;
                 }
             }
-            leveling = false;
-            if (nxt) nxt();
+
+            // Zoom animation then add cards
+            wait(40, function() {
+                // Slide selected panel to center
+                mvt(selectedEnt, selectedEnt.x, boardY + (ph + 4) / 2 - 12, 30);
+                selectedEnt.twcv = ease_in_out;
+
+                wait(30, function() {
+                    // Add cards
+                    for (const card of selectedEnt.cards) {
+                        addCard(card);
+                    }
+
+                    // Clean up other panels
+                    for (const pe of panelEntities) {
+                        if (pe !== selectedEnt) kl(pe);
+                    }
+
+                    // Fade out selected panel
+                    selectedEnt.life = 20;
+                    selectedEnt.blink = 20;
+
+                    wait(20, function() {
+                        kl(selectedEnt);
+                        kl(bgEnt);
+                        leveling = false;
+                        selecting = false;
+                        if (nxt) nxt();
+                    });
+                });
+            });
         }
     };
+}
+
+function selectPanel(panelEnt) {
+    if (!leveling || !leveling.selectCallback) return;
+    leveling.selectCallback(panelEnt);
+}
+
+function showPanelHints(panelEnt) {
+    hidePanelHints(panelEnt);
+
+    const pw = panelEnt.pw;
+    const ph = panelEnt.ph;
+    const cardW = 32;
+    const cardH = 40;
+    const ecc = 4;
+    const numCards = panelEnt.cards.length;
+    const ma = (pw - numCards * cardW - (numCards - 1) * ecc) / 2;
+    const margin = 4;
+    const tooltipW = 108;
+
+    for (let i = 0; i < numCards; i++) {
+        const ca = panelEnt.cards[i];
+        const name = (lang && lang[ca.id]) || ca.id || '';
+        const desc = ca.desc || getCardEffectText(ca) || '';
+        const descText = name + '\n' + desc;
+
+        const lines = descText.split('\n').length;
+        const tooltipH = margin * 2 + lines * 8;
+
+        const cardRelX = ma + (ecc + cardW) * i;
+        const cardRelY = 1 + (ph - cardH) / 2;
+
+        let tx, ty;
+        const cardCenterX = panelEnt.x + cardRelX;
+        const cardTop = panelEnt.y + cardRelY;
+
+        if (i === 0) {
+            tx = cardCenterX - tooltipW - 2;
+            ty = cardTop;
+        } else {
+            tx = cardCenterX + cardW + 2;
+            ty = cardTop;
+        }
+
+        if (tx < 2) tx = 2;
+        if (tx + tooltipW > MCW - 2) tx = MCW - 2 - tooltipW;
+        if (ty < 2) ty = 2;
+        if (ty + tooltipH > MCH - 2) ty = MCH - 2 - tooltipH;
+
+        const hintData = {
+            tx: tx,
+            ty: ty,
+            tooltipW: tooltipW,
+            tooltipH: tooltipH,
+            descText: descText
+        };
+
+        panelEnt.hintEntities.push(hintData);
+    }
+}
+
+function hidePanelHints(panelEnt) {
+    if (panelEnt) {
+        panelEnt.hintEntities = [];
+    }
+}
+
+function drawPanelHints(panelEnt) {
+    if (!panelEnt || !panelEnt.hintEntities) return;
+    console.log('[DRAW PANEL HINTS] count=' + panelEnt.hintEntities.length);
+    const margin = 4;
+
+    for (const hint of panelEnt.hintEntities) {
+        const x = hint.tx;
+        const y = hint.ty;
+
+        console.log('[DRAW HINT] x=' + x + ' y=' + y + ' w=' + hint.tooltipW + ' h=' + hint.tooltipH + ' text=' + hint.descText);
+
+        // Draw background
+        rectfill(x, y, x + hint.tooltipW - 1, y + hint.tooltipH - 1, 2);
+        rect(x, y, x + hint.tooltipW - 1, y + hint.tooltipH - 1, 3);
+
+        // Draw text directly on main canvas using bitmap font
+        const lines = hint.descText.split('\n');
+        let cy = y + margin;
+        for (let li = 0; li < lines.length; li++) {
+            const color = li === 0 ? 4 : 3;
+            Sugar.drawBitmapText(lines[li], x + margin, cy, color);
+            cy += 8;
+        }
+    }
+}
+
+function drawPanelEntity(e, px, py) {
+    const x = px;
+    const y = py;
+    const pw = e.pw;
+    const ph = e.ph;
+
+    // Panel background
+    rectfill(x, y, x + pw - 1, y + ph - 1, 2);
+
+    // Border color changes on hover
+    const borderColor = e.ovl ? 5 : 3;
+    rect(x, y, x + pw - 1, y + ph - 1, borderColor);
+
+    // Draw cards
+    spritesheet('cards');
+    const cardW = 32;
+    const cardH = 40;
+    const ecc = 4;
+    const numCards = e.cards.length;
+    const ma = (pw - numCards * cardW - (numCards - 1) * ecc) / 2;
+
+    for (let ci = 0; ci < numCards; ci++) {
+        const ca = e.cards[ci];
+        const cx = x + ma + (ecc + cardW) * ci;
+        const cy2 = y + 1 + (ph - cardH) / 2;
+
+        const cardTeam = ca.team || 0;
+        rectfill(cx, cy2, cx + cardW - 1, cy2 + cardH - 1, cardTeam === 1 ? 12 : 1);
+        rect(cx, cy2, cx + cardW - 1, cy2 + cardH - 1, 0);
+
+        if (ca.gid !== undefined) {
+            const sx = (ca.gid % 10) * 24;
+            const sy = Math.floor(ca.gid / 10) * 32;
+            const imgX = cx + Math.floor((cardW - 24) / 2);
+            const imgY = cy2 + 2;
+            sspr(sx, sy, 24, 32, imgX, imgY, 24, 32);
+        }
+
+        const name = (lang && lang[ca.id]) || ca.id || '';
+        smallPrint(name, cx + cardW / 2, cy2 + 22, 7, 1);
+    }
+
+    spritesheet('gfx');
 }
 
 function pickCard(team) {
@@ -1834,7 +2076,10 @@ function drawUI() {
     
     // Card display (both sides of board)
     drawCardsPanel();
-    
+
+    // Card slot tooltip (hover/touch on card slots)
+    drawCardSlotTooltip();
+
     // Stats panel (left side, between card slots and board)
     drawStatsPanel();
     
@@ -2207,134 +2452,128 @@ function drawCardsPanel() {
     }
 
     spritesheet('gfx');
+
+    // Store slot positions for touch detection
+    cardSlotPositions = [];
+
+    // Store player slot positions
+    for (let i = 0; i < playerSlots.length && i < 10; i++) {
+        const sl = playerSlots[i];
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        const cx = col * cardW;
+        const cy = startY + row * cardH;
+        cardSlotPositions.push({
+            x: cx, y: cy, w: cardW, h: cardH,
+            ca: sl.ca, side: 'player'
+        });
+    }
+
+    // Store enemy slot positions
+    for (let i = 0; i < enemySlots.length && i < 10; i++) {
+        const sl = enemySlots[i];
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        const cx = MCW - (cols - col) * cardW;
+        const cy = startY + row * cardH;
+        cardSlotPositions.push({
+            x: cx, y: cy, w: cardW, h: cardH,
+            ca: sl.ca, side: 'enemy'
+        });
+    }
+}
+
+function drawCardSlotTooltip() {
+    if (!cardSlotPositions || cardSlotPositions.length === 0) return;
+    if (!Input.mouse) return;
+
+    const mx = Input.mouse.x;
+    const my = Input.mouse.y;
+
+    for (const slot of cardSlotPositions) {
+        if (mx >= slot.x && mx < slot.x + slot.w &&
+            my >= slot.y && my < slot.y + slot.h) {
+            const ca = slot.ca;
+            if (!ca || ca.flipped) continue;
+
+            const name = (lang && lang[ca.id]) || ca.id || '';
+            const desc = ca.desc || getCardEffectText(ca) || '';
+            const descText = name + '\n' + desc;
+            console.log('[CARD SLOT TOOLTIP] name=' + name + ' desc=' + desc + ' descText=' + descText);
+
+            const margin = 4;
+            const tooltipW = 100;
+            const lines = descText.split('\n');
+            const tooltipH = margin * 2 + lines.length * 8;
+
+            // Position tooltip on the inner side of the slot
+            let tx, ty;
+            if (slot.side === 'player') {
+                tx = slot.x + slot.w + 2;
+            } else {
+                tx = slot.x - tooltipW - 2;
+            }
+            ty = slot.y;
+
+            // Clamp to screen
+            if (tx < 2) tx = 2;
+            if (tx + tooltipW > MCW - 2) tx = MCW - 2 - tooltipW;
+            if (ty < 2) ty = 2;
+            if (ty + tooltipH > MCH - 2) ty = MCH - 2 - tooltipH;
+
+            // Draw background
+            rectfill(tx, ty, tx + tooltipW - 1, ty + tooltipH - 1, 2);
+            rect(tx, ty, tx + tooltipW - 1, ty + tooltipH - 1, 3);
+
+            // Draw text directly on main canvas using bitmap font
+            let cy = ty + margin;
+            for (let li = 0; li < lines.length; li++) {
+                const color = li === 0 ? 4 : 3;
+                Sugar.drawBitmapText(lines[li], tx + margin, cy, color);
+                cy += 8;
+            }
+
+            break; // Only show one tooltip at a time
+        }
+    }
 }
 
 function drawLevelUpUI() {
-    if (!leveling || !leveling.panels) return;
+    if (!leveling) return;
 
-    const panels = leveling.panels;
-    const pw = leveling.panWidth;
-    const ph = leveling.panHeight;
+    console.log('[DRAW LEVEL UP] panelEntities=' + (leveling.panelEntities ? leveling.panelEntities.length : 'null'));
 
-    // Darken background
-    rectfill(0, 0, MCW, MCH, 0);
-
-    // Title (use lang translation, matches Lua: msg(lang.choose_set,-1))
+    // Title
     lprint((lang && lang.choose_set) || 'Choose a set of cards', MCW / 2, 6, 5, 1);
 
-    // Set spritesheet for card images
-    spritesheet('cards');
+    // Labels above each panel
+    if (leveling.panelEntities) {
+        for (let pi = 0; pi < leveling.panelEntities.length; pi++) {
+            const pe = leveling.panelEntities[pi];
+            if (pe.dead) continue;
+            const label = (lang && lang.group) || 'Group';
+            smallPrint(label + ' ' + (pi + 1), pe.x + pe.pw / 2, pe.y - 8, 7, 1);
+        }
+    }
 
-    // Draw each choice group
-    for (let pi = 0; pi < panels.length; pi++) {
-        const pan = panels[pi];
-        drawCardPanel(pan, pw, ph, pi);
-        // Label above each group
-        const label = (lang && lang.group) || 'Group';
-        smallPrint(label + ' ' + (pi + 1), pan.x + pan.w / 2, pan.y - 8, 7, 1);
+    // Draw tooltips for hovered/touched panels (after panels so they render on top)
+    if (leveling.panelEntities) {
+        for (let pi = 0; pi < leveling.panelEntities.length; pi++) {
+            const pe = leveling.panelEntities[pi];
+            if (pe.dead) continue;
+            if (pe.hintEntities && pe.hintEntities.length > 0) {
+                drawPanelHints(pe);
+            }
+        }
     }
 
     // Instructions at very bottom
-    lprint((lang && lang.choose_set) || 'Click a group to choose', MCW / 2, MCH - 4, 6, 1);
-
-    spritesheet('gfx');
+    lprint((lang && lang.choose_set) || 'Tap a group to choose', MCW / 2, MCH - 4, 6, 1);
 }
 
-function drawCardPanel(pan, pw, ph, panelIdx) {
-    const x = pan.x;
-    const y = pan.y;
 
-    // Panel background (matches Lua: rectfill(0,0,pw-1,ph-1,2))
-    rectfill(x, y, x + pw - 1, y + ph - 1, 2);
 
-    // Panel border (color changes on hover, matches Lua: c=3 normal, c=5 hover)
-    const borderColor = pan.hovered ? 5 : 3;
-    rect(x, y, x + pw - 1, y + ph - 1, borderColor);
 
-    // Draw cards side by side (matches Lua: 24x32 cards with 4px gap)
-    const cardW = 32;
-    const cardH = 40;
-    const ecc = 4;
-    const numCards = pan.cards.length;
-    const ma = (pw - numCards * cardW - (numCards - 1) * ecc) / 2;
-
-    for (let ci = 0; ci < numCards; ci++) {
-        const ca = pan.cards[ci];
-        const cx = x + ma + (ecc + cardW) * ci;
-        const cy = y + 1 + (ph - cardH) / 2;
-
-        // Card background (team=1 white/player = light, team=0 black/enemy = dark)
-        const cardTeam = ca.team || 0;
-        rectfill(cx, cy, cx + cardW - 1, cy + cardH - 1, cardTeam === 1 ? 12 : 1);
-        rect(cx, cy, cx + cardW - 1, cy + cardH - 1, 0);
-
-        // Card image from spritesheet using gid (Lua: 24x32 sprites)
-        if (ca.gid !== undefined) {
-            const sx = (ca.gid % 10) * 24;
-            const sy = Math.floor(ca.gid / 10) * 32;
-            // Center the 24x32 image in the card area
-            const imgX = cx + Math.floor((cardW - 24) / 2);
-            const imgY = cy + 2;
-            sspr(sx, sy, 24, 32, imgX, imgY, 24, 32);
-        }
-
-        // Card name (use lang translation, small font below image)
-        const name = (lang && lang[ca.id]) || ca.id || '';
-        smallPrint(name, cx + cardW / 2, cy + 22, 7, 1);
-    }
-}
-
-function drawPanelTooltip(pan, pw, ph, panelIdx) {
-    // Build description text for all cards in panel (matches Lua mk_hint)
-    const descs = [];
-    for (const ca of pan.cards) {
-        const name = (lang && lang[ca.id]) || ca.id || '';
-        const desc = ca.desc || getCardEffectText(ca) || '';
-        descs.push(name + '\n' + desc);
-    }
-
-    const margin = 4;
-    const tooltipW = 108;
-
-    // Calculate tooltip height based on number of cards and lines
-    let totalH = 0;
-    for (const desc of descs) {
-        const lines = desc.split('\n').length;
-        totalH += margin * 2 + lines * 8;
-    }
-
-    // Position tooltip (matches Lua: left panel goes left, right panel goes right)
-    let tx, ty;
-    if (panelIdx === 0) {
-        // Player panel (top) - tooltip below
-        tx = Math.max(2, pan.x);
-        ty = pan.y + ph + 4;
-    } else {
-        // Enemy panel (bottom) - tooltip above
-        tx = Math.max(2, pan.x);
-        ty = pan.y - totalH - 4;
-    }
-
-    // Clamp to screen bounds
-    if (tx + tooltipW > MCW - 2) tx = MCW - 2 - tooltipW;
-    if (ty < 2) ty = 2;
-
-    // Draw tooltip background
-    rectfill(tx, ty, tx + tooltipW - 1, ty + totalH - 1, 2);
-    rect(tx, ty, tx + tooltipW - 1, ty + totalH - 1, 3);
-
-    // Draw text
-    let cy = ty + margin;
-    for (const desc of descs) {
-        const lines = desc.split('\n');
-        for (let li = 0; li < lines.length; li++) {
-            const color = li === 0 ? 4 : 3; // First line (name) is highlight color
-            smallPrint(lines[li], tx + margin, cy, color, 0);
-            cy += 8;
-        }
-        cy += margin;
-    }
-}
 
 function getCardEffectText(ca) {
     if (ca.desc) return ca.desc;
